@@ -1,0 +1,17 @@
+# TubeDrop 桌面下载工具
+
+目标：在 macOS 独立窗口粘贴 YouTube 链接，自动识别单个视频并下载到选定目录。
+
+范围：普通 watch、youtu.be、Shorts、embed 链接；标题、频道、时长、封面、可用画质；最高画质或指定分辨率；进度、取消、完成后打开目录。默认下载到系统下载目录，由用户在界面选择修改。播放列表、直播、登录与批量下载不在第一版范围。
+
+技术：Python 3.12、PySide6 Essentials、yt-dlp[default]、imageio-ffmpeg。Qt 主进程管理界面，独立工作进程执行网络请求与下载；JSON Lines 传递事件，取消终止工作进程及其子进程。打包为 macOS .app。
+
+命令：`python app.py` 启动；`python -m pytest tests -q` 测试；`python -m compileall -q .` 语法检查；`python build.py` 打包。
+
+结构：app.py 界面和状态；core.py 链接、画质、依赖与错误处理；worker.py 下载进程；tests/ 逻辑、进程和界面测试；requirements.txt 运行依赖；build.py 打包。
+
+代码：snake_case，简单中文注释，数据结构显式；不通过 shell 拼接执行用户输入。
+
+验证：合法链接规范化；拒绝伪造主机、非视频链接、凭据和异常端口；画质不会静默下载更高分辨率；取消不会留下运行进程；仅最终文件存在时展示完成；识别和失败都可重新操作；使用真实网络检查解析和下载，若平台限制则明确报告测试边界。
+
+边界：始终校验链接、限制单视频、保留现有文件、使用 HTTPS；下载只由用户点击触发；不收集账号、cookies 或浏览器数据；不删除用户文件；不自动发布。
