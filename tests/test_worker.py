@@ -40,3 +40,13 @@ def test_worker_invalid_url_reports_structured_error():
     assert result.returncode == 1
     assert events[-1]['type'] == 'error'
     assert '链接' in events[-1]['message']
+
+
+def test_worker_runs_when_already_session_leader():
+    script = Path(__file__).resolve().parents[1] / 'app.py'
+    result = subprocess.run([sys.executable, str(script), '--worker', 'identify',
+                             'https://evil.org'], capture_output=True, text=True,
+                            timeout=15, start_new_session=True)
+    assert result.returncode == 1
+    events = [json.loads(line) for line in result.stdout.splitlines()]
+    assert events[-1]['type'] == 'error'

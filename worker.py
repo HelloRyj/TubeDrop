@@ -72,7 +72,7 @@ def download_options(folder: Path, height: int | None) -> dict:
 
 def run(argv: list[str]) -> int:
     # 单独进程组让界面取消时同时终止 FFmpeg 和 JavaScript 子进程。
-    if os.name == 'posix':
+    if os.name == 'posix' and os.getpgrp() != os.getpid():
         os.setsid()
     emit('started')
     parser = argparse.ArgumentParser()
