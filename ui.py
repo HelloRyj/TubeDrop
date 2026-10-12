@@ -6,29 +6,30 @@ from PySide6.QtWidgets import (
 )
 
 STYLE = '''
-QWidget { color: #243831; font-family: "PingFang SC", "Helvetica Neue"; font-size: 14px; }
-QWidget#root { background: #f4f5f1; }
-QFrame#card { background: #ffffff; border: 1px solid #dce3dc; border-radius: 12px; }
-QLabel#brand { font-size: 21px; font-weight: 650; }
-QLabel#heading { font-size: 30px; font-weight: 650; }
-QLabel#muted { color: #627067; font-size: 13px; }
-QLabel#section { color: #627067; font-size: 12px; font-weight: 600; }
-QLabel#title { font-size: 19px; font-weight: 600; }
-QLabel#badge { color: #176646; background: #e6f1e8; border-radius: 6px; padding: 7px 12px; }
-QLabel#thumbnail { background: #eaf0e9; border-radius: 8px; color: #65776b; font-size: 28px; }
-QLineEdit, QComboBox { background: #fbfcfa; border: 1px solid #cbd6cd; border-radius: 7px;
-    min-height: 23px; padding: 10px 12px; selection-background-color: #286c50; }
-QLineEdit:focus, QComboBox:focus { border: 2px solid #286c50; padding: 9px 11px; }
-QLineEdit:disabled, QComboBox:disabled { color: #748179; background: #f1f3ef; }
-QPushButton { background: #ffffff; border: 1px solid #cbd6cd; border-radius: 7px;
-    min-height: 23px; padding: 10px 16px; font-weight: 550; }
-QPushButton:hover { background: #edf3ed; border-color: #769d83; }
-QPushButton:focus { border: 2px solid #286c50; padding: 9px 15px; }
-QPushButton#primary { background: #226246; color: #ffffff; border: 1px solid #226246; }
-QPushButton#primary:hover { background: #194c36; }
-QPushButton:disabled, QPushButton#primary:disabled { background: #e9eee9; color: #77867b; border-color: #e0e6df; }
-QProgressBar { background: #e9eee7; border: none; border-radius: 4px; height: 8px; }
-QProgressBar::chunk { background: #377c54; border-radius: 4px; }
+QWidget { color: #1c1c1e; font-size: 14px; }
+QWidget#root, QScrollArea { background: #f2f2f7; }
+QFrame#card { background: #ffffff; border: 1px solid #e5e5ea; border-radius: 16px; }
+QLabel#brand { font-size: 28px; font-weight: 650; }
+QLabel#heading { font-size: 24px; font-weight: 650; }
+QLabel#muted { color: #636366; font-size: 13px; }
+QLabel#section { color: #636366; font-size: 12px; font-weight: 600; }
+QLabel#title { font-size: 17px; font-weight: 600; }
+QLabel#badge { color: #636366; font-size: 12px; }
+QLabel#thumbnail { background: #f2f2f7; border-radius: 12px; color: #8e8e93; font-size: 28px; }
+QLineEdit, QComboBox { background: #f2f2f7; border: 1px solid #f2f2f7; border-radius: 10px;
+    min-height: 23px; padding: 10px 12px; selection-background-color: #0066cc; }
+QLineEdit:focus, QComboBox:focus { border: 2px solid #0066cc; padding: 9px 11px; }
+QLineEdit:disabled, QComboBox:disabled { color: #76767c; background: #f2f2f7; }
+QComboBox::drop-down { border: none; width: 24px; }
+QPushButton { background: #f2f2f7; color: #0066cc; border: 1px solid #f2f2f7;
+    border-radius: 10px; min-height: 23px; padding: 10px 16px; font-weight: 550; }
+QPushButton:hover { background: #e8effa; border-color: #e8effa; }
+QPushButton:focus { border: 2px solid #0066cc; padding: 9px 15px; }
+QPushButton#primary { background: #0066cc; color: #ffffff; border: 1px solid #0066cc; }
+QPushButton#primary:hover { background: #0056ad; }
+QPushButton:disabled, QPushButton#primary:disabled { background: #e5e5ea; color: #76767c; border-color: #e5e5ea; }
+QProgressBar { background: #e5e5ea; border: none; border-radius: 3px; height: 6px; }
+QProgressBar::chunk { background: #0066cc; border-radius: 3px; }
 '''
 
 
@@ -67,15 +68,15 @@ def build_window(window):
     layout.setSpacing(8)
     layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
     header = QHBoxLayout()
-    header.addWidget(label('↓  TubeDrop', 'brand'))
+    header.addWidget(label('TubeDrop', 'brand'))
     header.addStretch()
-    header.addWidget(label('桌面下载工具', 'badge'))
+    header.addWidget(label('本地保存 · 不限速', 'badge'))
     layout.addLayout(header)
-    layout.addWidget(label('粘贴链接，把视频带走。', 'heading'))
-    layout.addWidget(label('识别视频 · 选择画质 · 保存到你的电脑', 'muted'))
+    layout.addWidget(label('粘贴链接，保存视频。', 'muted'))
+    layout.addSpacing(8)
 
     link_card = card(layout)
-    link_card.addWidget(label('01   视频链接', 'section'))
+    link_card.addWidget(label('视频链接', 'section'))
     link_row = QHBoxLayout()
     window.url_edit = QLineEdit()
     window.url_edit.setPlaceholderText('https://www.youtube.com/watch?v=…')
@@ -88,21 +89,21 @@ def build_window(window):
     link_row.addWidget(window.paste_btn)
     link_row.addWidget(window.identify_btn)
     link_card.addLayout(link_row)
-    link_card.addWidget(label('支持普通视频、分享短链接和 Shorts；粘贴有效链接后自动识别。', 'muted'))
+    link_card.addWidget(label('支持 YouTube 与 Shorts，粘贴后自动识别。', 'muted'))
 
     preview = card(layout)
-    preview.addWidget(label('02   视频预览', 'section'))
+    preview.addWidget(label('视频预览', 'section'))
     video_row = QHBoxLayout()
     video_row.setSpacing(20)
-    window.thumbnail = label('↓', 'thumbnail')
-    window.thumbnail.setFixedSize(176, 99)
+    window.thumbnail = label('▶', 'thumbnail')
+    window.thumbnail.setFixedSize(160, 90)
     window.thumbnail.setAlignment(Qt.AlignmentFlag.AlignCenter)
     window.thumbnail.setAccessibleName('视频封面')
     video_row.addWidget(window.thumbnail)
     details = QVBoxLayout()
-    window.video_title = label('等待识别视频', 'title', True)
+    window.video_title = label('等待识别', 'title', True)
     window.video_title.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-    window.video_detail = label('粘贴链接后，这里将显示标题、频道和时长。', 'muted', True)
+    window.video_detail = label('视频信息将在这里显示。', 'muted', True)
     details.addStretch()
     details.addWidget(window.video_title)
     details.addWidget(window.video_detail)
@@ -111,7 +112,7 @@ def build_window(window):
     preview.addLayout(video_row)
 
     save_card = card(layout)
-    save_card.addWidget(label('03   下载设置', 'section'))
+    save_card.addWidget(label('下载设置', 'section'))
     settings_row = QHBoxLayout()
     settings_row.setSpacing(16)
     quality_column = QVBoxLayout()
@@ -128,7 +129,7 @@ def build_window(window):
     window.folder_edit = QLineEdit()
     window.folder_edit.setReadOnly(True)
     window.folder_edit.setAccessibleName('保存目录')
-    window.folder_btn = QPushButton('选择…')
+    window.folder_btn = QPushButton('更改')
     folder_row.addWidget(window.folder_edit, 1)
     folder_row.addWidget(window.folder_btn)
     folder_column.addLayout(folder_row)
@@ -138,26 +139,26 @@ def build_window(window):
     proxy_row = QHBoxLayout()
     proxy_row.addWidget(label('代理（可选）', 'muted'))
     window.proxy_edit = QLineEdit()
-    window.proxy_edit.setPlaceholderText('例如 http://127.0.0.1:7890；留空使用系统网络')
+    window.proxy_edit.setPlaceholderText('http://127.0.0.1:7890；可留空')
     window.proxy_edit.setAccessibleName('网络代理地址')
     proxy_row.addWidget(window.proxy_edit, 1)
     save_card.addLayout(proxy_row)
 
     window.progress = QProgressBar()
     window.progress.setTextVisible(False)
-    window.progress.setFixedHeight(8)
+    window.progress.setFixedHeight(6)
     window.progress.setValue(0)
     window.progress.setAccessibleName('下载进度')
     layout.addWidget(window.progress)
-    window.status = label('准备就绪，先粘贴一个视频链接。', 'muted', True)
-    window.status.setAccessibleName('操作状态')
+    window.status = label('准备就绪，粘贴链接即可开始。', 'muted', True)
+    window.status.setAccessibleName('操作状态：准备就绪，粘贴链接即可开始。')
     window.status.setMinimumHeight(36)
     layout.addWidget(window.status)
     actions = QHBoxLayout()
     window.open_btn = QPushButton('打开保存目录')
     window.cancel_btn = QPushButton('取消')
     window.cancel_btn.setEnabled(False)
-    window.download_btn = QPushButton('↓  开始下载')
+    window.download_btn = QPushButton('开始下载')
     window.download_btn.setObjectName('primary')
     window.download_btn.setMinimumWidth(180)
     window.download_btn.setEnabled(False)
@@ -167,4 +168,4 @@ def build_window(window):
     actions.addWidget(window.download_btn)
     layout.addLayout(actions)
     layout.addStretch()
-    layout.addWidget(label('视频保存在本机  ·  请仅下载你有权保存的内容', 'muted'))
+    layout.addWidget(label('请仅下载你有权保存的内容。', 'muted'))

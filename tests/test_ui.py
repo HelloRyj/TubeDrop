@@ -11,21 +11,6 @@ from PySide6.QtWidgets import QApplication
 from app import Window
 
 
-@pytest.fixture(scope='session')
-def qt_app():
-    return QApplication.instance() or QApplication([])
-
-
-@pytest.fixture
-def window(qt_app, tmp_path):
-    settings = QSettings(str(tmp_path / 'settings.ini'), QSettings.Format.IniFormat)
-    settings.setValue('folder', str(tmp_path))
-    widget = Window(settings)
-    yield widget
-    widget.close()
-    qt_app.processEvents()
-
-
 def wait_until(predicate, timeout=5000):
     end = time.monotonic() + timeout / 1000
     while time.monotonic() < end:

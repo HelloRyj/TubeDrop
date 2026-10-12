@@ -13,6 +13,13 @@ from urllib.parse import urlsplit
 from core import available_heights, dependency_options, format_selector, human_error, normalize_url
 
 
+def configure_stdio():
+    # Windows 的管道默认编码可能是本地代码页；事件协议固定使用 UTF-8。
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, 'reconfigure'):
+            stream.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
+
+
 def emit(event_type: str, **data) -> None:
     print(json.dumps({'type': event_type, **data}, ensure_ascii=False), flush=True)
 
@@ -71,9 +78,17 @@ def download_options(folder: Path, height: int | None) -> dict:
 
 
 def run(argv: list[str]) -> int:
+    configure_stdio()
     # 单独进程组让界面取消时同时终止 FFmpeg 和 JavaScript 子进程。
-    if os.name == 'posix' and os.getpgrp() != os.getpid():
-        os.setsid()
+    try:
+        if sys.platform == 'win32':
+            from winjob import assign_worker_job
+            assign_worker_job()
+        elif os.name == 'posix' and os.getpgrp() != os.getpid():
+            os.setsid()
+    except OSError as error:
+        emit('error', message=f'无法启动受控下载进程：{error}')
+        return 1
     emit('started')
     parser = argparse.ArgumentParser()
     parser.add_argument('action', choices=['identify', 'download'])

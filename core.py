@@ -59,8 +59,14 @@ def format_selector(height: int | None) -> str:
 
 
 def runtime_path(name: str) -> str | None:
+    executable = name + '.exe' if sys.platform == 'win32' else name
     if getattr(sys, 'frozen', False):
-        bundled = Path(sys._MEIPASS) / 'bin' / name
+        bundled = Path(sys._MEIPASS) / 'bin' / executable
+        if bundled.is_file():
+            return str(bundled)
+    if sys.platform == 'win32':
+        # 官方嵌入式 Python 安装包将应用代码与运行组件分别放置。
+        bundled = Path(__file__).resolve().parent.parent / 'bin' / executable
         if bundled.is_file():
             return str(bundled)
     found = shutil.which(name)

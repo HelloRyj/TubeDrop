@@ -50,3 +50,15 @@ def test_worker_runs_when_already_session_leader():
     assert result.returncode == 1
     events = [json.loads(line) for line in result.stdout.splitlines()]
     assert events[-1]['type'] == 'error'
+
+
+def test_progress_pipe_handles_unicode_on_windows_locale(monkeypatch):
+    import io
+    import worker
+    buffer = io.BytesIO()
+    stream = io.TextIOWrapper(buffer, encoding='cp1252')
+    monkeypatch.setattr(sys, 'stdout', stream)
+    worker.configure_stdio()
+    worker.emit('metadata', title='视频标题 · 日本語')
+    stream.flush()
+    assert json.loads(buffer.getvalue().decode('utf-8'))['title'] == '视频标题 · 日本語'

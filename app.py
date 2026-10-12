@@ -12,7 +12,7 @@ if __name__ == '__main__' and len(sys.argv) > 1 and sys.argv[1] == '--worker':
     sys.exit(run(sys.argv[2:]))
 
 from PySide6.QtCore import QProcess, QSettings, QStandardPaths, Qt, QTimer, QUrl
-from PySide6.QtGui import QDesktopServices, QIcon, QPixmap
+from PySide6.QtGui import QDesktopServices, QFont, QIcon, QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow
 
@@ -24,8 +24,8 @@ class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
         self.setWindowTitle('TubeDrop · YouTube 视频下载')
-        self.resize(860, 800)
-        self.setMinimumSize(760, 680)
+        self.resize(780, 760)
+        self.setMinimumSize(680, 600)
         self.settings = settings if settings is not None else QSettings('TubeDrop', 'TubeDrop')
         self.video = None
         self.identified_url = ''
@@ -70,7 +70,8 @@ class Window(QMainWindow):
 
     def show_status(self, text, error=False):
         self.status.setText(text)
-        self.status.setStyleSheet('color: #a33728;' if error else 'color: #53685a;')
+        self.status.setAccessibleName(f'操作状态：{text}')
+        self.status.setStyleSheet('color: #b3261e;' if error else 'color: #636366;')
 
     def url_changed(self):
         self.auto_timer.stop()
@@ -82,9 +83,9 @@ class Window(QMainWindow):
         self.quality.addItem('识别后选择', None)
         self.quality.setEnabled(False)
         self.thumbnail.clear()
-        self.thumbnail.setText('↓')
-        self.video_title.setText('等待识别视频')
-        self.video_detail.setText('粘贴链接后，这里将显示标题、频道和时长。')
+        self.thumbnail.setText('▶')
+        self.video_title.setText('等待识别')
+        self.video_detail.setText('视频信息将在这里显示。')
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
         self.show_status('准备就绪，先粘贴一个视频链接。')
@@ -121,8 +122,13 @@ class Window(QMainWindow):
 
     def worker_command(self, action, url):
         if getattr(sys, 'frozen', False):
+            if sys.platform == 'win32':
+                return str(Path(sys.executable).with_name('TubeDropWorker.exe')), [action, url]
             return sys.executable, ['--worker', action, url]
-        return sys.executable, [str(Path(__file__).resolve()), '--worker', action, url]
+        executable = Path(sys.executable)
+        if sys.platform == 'win32' and executable.name.lower() == 'pythonw.exe':
+            executable = executable.with_name('python.exe')
+        return str(executable), [str(Path(__file__).resolve()), '--worker', action, url]
 
     def start_worker(self, action, url, extra=None):
         self.cancelled = False
@@ -261,6 +267,10 @@ class Window(QMainWindow):
         if not self.process:
             return
         pid = self.process.processId()
+        if sys.platform == 'win32':
+            # Console 后台程序不能依靠 WM_CLOSE；Job Object 清理子进程。
+            self.process.kill()
+            return
         if os.name == 'posix' and pid and self.group_ready:
             try:
                 os.killpg(pid, signal.SIGKILL if hard else signal.SIGTERM)
@@ -329,6 +339,7 @@ def main():
     app = QApplication(sys.argv)
     app.setApplicationName('TubeDrop')
     app.setStyle('Fusion')
+    app.setFont(QFont('PingFang SC' if sys.platform == 'darwin' else 'Segoe UI', 11))
     window = Window()
     icon_path = Path(getattr(sys, '_MEIPASS', Path(__file__).parent)) / 'icon.png'
     if icon_path.is_file():

@@ -45,7 +45,11 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys):
         ],
     }
     monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', lambda *_args, **_kwargs: info)
-    monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    if os.name == 'posix':
+        monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    else:
+        # 测试进程不加入 job，实际后台子进程由专门的 Windows 取消测试覆盖。
+        monkeypatch.setattr('winjob.assign_worker_job', lambda: None)
     try:
         code = run(['download', 'https://youtu.be/BaW_jenozKc', '--folder', str(destination)])
     finally:
