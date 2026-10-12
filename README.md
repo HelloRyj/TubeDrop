@@ -1,50 +1,52 @@
-# TubeDrop
+# TubeDrop 1.1
 
-一个中文桌面小工具：粘贴 YouTube 视频链接，自动识别后选择画质并下载。
+简约 iOS 风格的 YouTube 桌面下载工具。粘贴链接，自动识别视频，选择画质和目录后保存为 MP4。视频下载不设置速度上限或人为等待。
 
-## 使用
+## 安装和使用
 
-1. 双击旁边的 `TubeDrop.app`，打开独立窗口。
-2. 点击“粘贴”或将视频链接粘贴到输入框。有效链接会自动开始识别。
-3. 查看标题和画质，选择保存位置，然后点击“开始下载”。
-4. 完成后点击“打开保存目录”，视频保存为 MP4。
+**macOS：**双击 `TubeDrop-1.1.0-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
 
-支持普通视频、`youtu.be` 分享链接和 Shorts。选择分辨率时，工具下载不超过所选分辨率的可用视频；“最高可用画质”使用视频提供的最高画质。取消后可重新下载，未完成的 `.part` 等临时文件可能保留。应用不会覆盖已有视频。
+**Windows：**双击 `TubeDrop-1.1.0-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
 
-默认保存到系统“下载”目录，修改后的目录会记住。若网络无法访问 YouTube，可在代理框输入自己的 HTTP 或 SOCKS5 代理地址，如 `http://127.0.0.1:7890`；不需要代理时留空。代理地址只用于当前会话，不保存。
+**验证边界：**Mac 包已完成测试、签名校验和安装载荷检查。Windows 安装器已在 Mac 上跨平台编译，运行组件使用官方 Windows 发行包且逐文件校验；当前没有 Windows 电脑，尚未完成 Windows 上的实际启动、下载和卸载验证。Windows 包应先在目标电脑试用。安装包尚未进行 Apple 公证或商业代码签名，外部分发可能出现系统发布者提示。
 
-识别失败时，界面会显示可操作的原因。当前版本不支持直播、播放列表、需要登录或权限验证的视频，也不会读取浏览器登录信息。封面请求失败不影响识别和下载。YouTube 对部分网络可能要求人机验证；遇到访问限制可稍后重试或换网络。
+使用流程：粘贴 YouTube / youtu.be / Shorts 链接 → 自动识别 → 选择画质和保存位置 → 开始下载。下载完成后点击“打开保存目录”。取消后可能保留未完成的临时文件；重新下载不会覆盖已有视频。
 
-本次 .app 面向 Apple Silicon Mac，macOS 14 或更新版本。应用附带 Python、Qt、yt-dlp、FFmpeg 和 Node，不需要另行安装。它采用本地临时签名，没有 Apple 开发者公证，外部分发时可能需要在 Finder 中右键选择“打开”。
+无法连接 YouTube 时，可输入自己的 HTTP 或 SOCKS5 代理地址，例如 `http://127.0.0.1:7890`。代理不保存。需要登录、访问权限或人机验证的视频可能无法下载；当前版本不支持直播和播放列表，也不会读取浏览器登录信息。
 
-## 从源码运行
+## 技术和源码运行
 
-需要 Python 3.10+ 和 Node.js 22+ 或 Deno 2.3+。
+Python + PySide6 / Qt Widgets；yt-dlp 解析和下载；Node / EJS 处理 YouTube 脚本；FFmpeg 合并音视频。Qt 通过 QProcess 启动后台进程，并用 UTF-8 JSON Lines 交换事件。macOS 使用进程组，Windows 使用 Job Object 清理下载子进程。
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
 python app.py
+python -m pytest tests -q
 ```
 
-FFmpeg 二进制由 imageio-ffmpeg 包提供。YouTube 解析使用 `yt-dlp[default]` 附带的 EJS 脚本，执行引擎使用 Node 或 Deno。
+源码运行需要 Python 3.10+、Node.js 22+ 或 Deno 2.3+。Windows 源码环境可使用 `.venv\Scripts\activate`。
+
+## 重建安装包
+
+macOS 构建（对应架构的 Mac）：
 
 ```bash
-python -m pip install -r requirements-dev.txt
-python -m pytest tests -q
 python build.py
 ```
 
-网络下载和合并由独立进程执行，以 JSON Lines 将状态传回 Qt 主进程。取消操作终止整个下载进程组，避免留下 FFmpeg 子进程。URL 先规范化为官方单视频链接；标题始终按纯文本展示；仅最终文件存在时才报告完成。
+Windows 安装器可在 Mac、Linux 或 Windows 上编译。先安装 [NSIS / makensis](https://nsis.sourceforge.io/Download)（Mac 可用 `brew install makensis`），然后下载清单锁定的官方 Windows 组件：
 
-YouTube 的接口会变化，遇到平台更新可在源码环境更新 `yt-dlp[default]` 后重新打包。依赖锁定在 `requirements-lock.txt`；本次测试结果见 `VERIFICATION.md`。
+```bash
+python installer/fetch_windows.py --cache /absolute/path/to/work/windows-cache
+python pack_windows.py \
+  --cache /absolute/path/to/work/windows-cache \
+  --manifest installer/windows-manifest.json \
+  --runtimes installer/windows-runtime-manifest.json \
+  --payload /absolute/path/to/work/windows-payload
+```
 
-## 上游项目
+Windows 包内置 Python 3.14.8、Node 24.21.0 和 Windows x64 的 PySide6、FFmpeg、yt-dlp 依赖。Qt 发行包附带所需 Visual C++ 运行库。通过 Python 官方嵌入式运行时启动，系统 Python 环境不受影响。`windows-requirements.txt`、两个 JSON 清单记录版本、下载源和校验值。
 
-- [yt-dlp 使用和依赖](https://github.com/yt-dlp/yt-dlp)
-- [YouTube JavaScript 运行环境说明](https://github.com/yt-dlp/yt-dlp/wiki/EJS)
-- [Qt for Python](https://doc.qt.io/qtforpython-6/)
-- [imageio-ffmpeg](https://github.com/imageio/imageio-ffmpeg)
-
-请仅下载你有权保存的内容。
+测试和交付记录见 `VERIFICATION.md`；上游许可见 `THIRD_PARTY.md`。请仅下载你有权保存的内容。

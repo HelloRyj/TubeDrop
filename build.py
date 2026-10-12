@@ -4,9 +4,12 @@ import plistlib
 import shutil
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from core import runtime_path
+
+VERSION = '1.1.0'
 
 
 def install_bundle(root):
@@ -40,9 +43,9 @@ def make_icon(root):
     painter = QPainter(icon)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor('#226246'))
+    painter.setBrush(QColor('#0066cc'))
     painter.drawRoundedRect(QRectF(64, 64, 896, 896), 200, 200)
-    painter.setPen(QPen(QColor('#f2f5e9'), 64, Qt.PenStyle.SolidLine,
+    painter.setPen(QPen(QColor('#ffffff'), 64, Qt.PenStyle.SolidLine,
                         Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
     painter.drawLine(QPointF(512, 280), QPointF(512, 635))
     painter.drawLine(QPointF(360, 483), QPointF(512, 635))
@@ -50,6 +53,7 @@ def make_icon(root):
     painter.drawLine(QPointF(320, 755), QPointF(704, 755))
     painter.end()
     icon.save(str(root / 'icon.png'))
+    icon.scaled(256, 256).save(str(root / 'icon.ico'))
     iconset = root / 'build' / 'TubeDrop.iconset'
     iconset.mkdir(parents=True, exist_ok=True)
     for size in (16, 32, 128, 256, 512):
@@ -81,7 +85,33 @@ def main():
         '--specpath', str(root / 'build'), str(root / 'app.py'),
     ]
     subprocess.run(command, cwd=root, check=True)
+    info_path = root / 'build' / 'dist' / 'TubeDrop.app' / 'Contents' / 'Info.plist'
+    with info_path.open('rb') as file:
+        info = plistlib.load(file)
+    info.update(CFBundleShortVersionString=VERSION, CFBundleVersion=VERSION, LSMinimumSystemVersion='14.0')
+    with info_path.open('wb') as file:
+        plistlib.dump(info, file)
+    subprocess.run(['codesign', '--force', '--deep', '--sign', '-', str(info_path.parents[1])], check=True)
     install_bundle(root)
+    architecture = 'arm64' if platform.machine() == 'arm64' else 'x86_64'
+    package = root.parent / f'TubeDrop-{VERSION}-macOS-{architecture}.pkg'
+    payload = Path(tempfile.mkdtemp(prefix='pkg-root-', dir=root / 'build'))
+    shutil.copytree(root.parent / 'TubeDrop.app', payload / 'Applications' / 'TubeDrop.app',
+                    symlinks=True, dirs_exist_ok=True)
+    components = root / 'build' / 'components.plist'
+    subprocess.run(['pkgbuild', '--analyze', '--root', str(payload), str(components)], check=True)
+    with components.open('rb') as file:
+        definitions = plistlib.load(file)
+    for definition in definitions:
+        definition.update(BundleIsRelocatable=False, BundleIsVersionChecked=True,
+                          BundleOverwriteAction='upgrade')
+    with components.open('wb') as file:
+        plistlib.dump(definitions, file)
+    subprocess.run(['pkgbuild', '--root', str(payload), '--component-plist', str(components),
+                    '--install-location', '/', '--identifier', 'local.tubedrop.desktop',
+                    '--version', VERSION, str(package)], check=True)
+    shutil.rmtree(payload)
+    print(f'安装包已生成：{package}')
     print(f'应用已生成：{root.parent / "TubeDrop.app"}')
 
 
