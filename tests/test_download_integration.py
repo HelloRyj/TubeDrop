@@ -35,6 +35,9 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
     subprocess.run([ffmpeg, '-v', 'error', '-i', str(media / 'video.mp4'),
                     '-i', str(media / 'audio.m4a'), '-c', 'copy',
                     str(media / 'combined.mp4')], check=True)
+    subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i',
+                    'sine=frequency=880:sample_rate=44100', '-t', '1.5',
+                    '-c:a', 'aac', str(media / 'music.m4a')], check=True)
 
     class QuietHandler(SimpleHTTPRequestHandler):
         def log_message(self, *_):
@@ -49,7 +52,7 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
         'extractor': extractor.lower(), 'extractor_key': extractor,
         'webpage_url': url,
         'formats': [
-            {'format_id': 'audio', 'url': origin + '/audio.m4a', 'ext': 'm4a',
+            {'format_id': 'audio', 'url': origin + ('/audio.m4a' if extractor == 'Youtube' else '/music.m4a'), 'ext': 'm4a',
              'vcodec': 'none', 'acodec': 'mp4a.40.2', 'abr': 128},
             {'format_id': 'video', 'url': origin + '/video.mp4', 'ext': 'mp4',
              'vcodec': 'avc1', 'acodec': 'none', 'height': 90, 'width': 160},
@@ -85,5 +88,8 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
     else:
         assert 'Video:' not in probe.stderr
         assert 'Audio: mp3' in probe.stderr
+        import re
+        seconds = float(re.search(r'Duration: 00:00:([0-9.]+)', probe.stderr)[1])
+        assert seconds < 1, 'MP3 应保存原视频声音，不能下载更长的独立背景音乐'
     assert subprocess.run([ffmpeg, '-v', 'error', '-i', str(final), '-f', 'null', '-'],
                           capture_output=True).returncode == 0

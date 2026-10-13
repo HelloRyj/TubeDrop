@@ -30,6 +30,7 @@ class Window(QMainWindow):
         self.settings = settings if settings is not None else QSettings('TubeDrop', 'TubeDrop')
         self.video = None
         self.identified_url = ''
+        self.cookies_path = ''
         self.process = None
         self.cancelled = False
         self.terminal_event = False
@@ -58,13 +59,16 @@ class Window(QMainWindow):
         self.folder_btn.clicked.connect(self.choose_folder)
         self.open_btn.clicked.connect(self.open_folder)
         self.output_format.currentIndexChanged.connect(self.format_changed)
+        self.cookie_btn.clicked.connect(self.choose_cookies)
+        self.cookie_clear_btn.clicked.connect(self.clear_cookies)
 
     def is_busy(self):
         return self.process is not None
 
     def set_busy(self, busy):
         for widget in (self.url_edit, self.paste_btn, self.identify_btn,
-                       self.folder_btn, self.proxy_edit, self.output_format):
+                       self.folder_btn, self.proxy_edit, self.output_format,
+                       self.cookie_btn, self.cookie_clear_btn):
             widget.setEnabled(not busy)
         output_format = self.output_format.currentData()
         capable = self.video is not None and self.video.get(
@@ -80,6 +84,19 @@ class Window(QMainWindow):
                 self.show_status('此视频没有可下载的音轨，请选择 MP4。', error=True)
             else:
                 self.show_status('已选择保存格式，可以开始下载。')
+
+    def choose_cookies(self):
+        filename, _ = QFileDialog.getOpenFileName(self, '选择自己的 Cookie 文件', '',
+                                                 'Cookie 文件 (*.txt);;所有文件 (*)')
+        if filename:
+            self.cookies_path = filename
+            self.cookie_label.setText(Path(filename).name)
+            self.show_status('已选择访问验证文件，可重新识别视频。')
+
+    def clear_cookies(self):
+        self.cookies_path = ''
+        self.cookie_label.setText('访问验证（可选）')
+        self.show_status('已清除访问验证文件。')
 
     def show_status(self, text, error=False):
         self.status.setText(text)
@@ -159,6 +176,8 @@ class Window(QMainWindow):
         args += extra or []
         if proxy := self.proxy_edit.text().strip():
             args += ['--proxy', proxy]
+        if self.cookies_path:
+            args += ['--cookies', self.cookies_path]
         self.set_busy(True)
         self.progress.setRange(0, 0)
         process.start(program, args)

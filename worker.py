@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import io
 import json
 import os
 import sys
@@ -109,6 +110,47 @@ def base_options(proxy: str = '') -> dict:
     return options
 
 
+def load_user_cookies(filename: str, platform: str):
+    from yt_dlp.cookies import YoutubeDLCookieJar
+    try:
+        path = Path(filename)
+        if not path.is_file():
+            raise ValueError
+        with path.open('rb') as file:
+            data = file.read(5 * 1024 * 1024 + 1)
+        if len(data) > 5 * 1024 * 1024:
+            raise ValueError
+        text = data.decode('utf-8-sig')
+        if not text.startswith(('# Netscape HTTP Cookie File', '# HTTP Cookie File')):
+            raise ValueError
+        for line in text.splitlines():
+            line = line.removeprefix('#HttpOnly_')
+            if not line.strip() or line.startswith('#'):
+                continue
+            fields = line.split('\t')
+            if (len(fields) != 7 or fields[1] not in {'TRUE', 'FALSE'}
+                    or fields[3] not in {'TRUE', 'FALSE'}
+                    or fields[1] != ('TRUE' if fields[0].startswith('.') else 'FALSE')
+                    or (fields[4] and not fields[4].isdigit())):
+                raise ValueError
+        jar = YoutubeDLCookieJar()
+        jar.load(io.StringIO(text))
+    except (OSError, ValueError, UnicodeError):
+        raise ValueError('Cookie 文件不可用，请选择 UTF-8 编码的 Netscape Cookie 文件（不超过 5 MB）。') from None
+    except Exception:
+        raise ValueError('Cookie 文件格式无效，请重新导出 Netscape Cookie 文件。') from None
+    domains = {'YouTube': ('youtube.com', 'google.com'), 'TikTok': ('tiktok.com',),
+               '抖音': ('douyin.com', 'iesdouyin.com')}[platform]
+    filtered = YoutubeDLCookieJar()
+    for cookie in jar:
+        domain = cookie.domain.lstrip('.').lower()
+        if any(domain == allowed or domain.endswith('.' + allowed) for allowed in domains):
+            filtered.set_cookie(cookie)
+    if not list(filtered):
+        raise ValueError(f'Cookie 文件中没有 {platform} 的访问凭据，请选择对应平台的文件。')
+    return filtered
+
+
 def download_options(folder: Path, height: int | None, output_format: str = 'mp4',
                      platform: str = 'YouTube') -> dict:
     if output_format not in {'mp4', 'mp3'}:
@@ -150,6 +192,7 @@ def run(argv: list[str]) -> int:
     parser.add_argument('--height', type=int)
     parser.add_argument('--output-format', choices=['mp4', 'mp3'], default='mp4')
     parser.add_argument('--proxy', default='')
+    parser.add_argument('--cookies', default='')
     args = parser.parse_args(argv)
     platform = '视频平台'
     try:
@@ -159,9 +202,13 @@ def run(argv: list[str]) -> int:
         from yt_dlp.postprocessor import PostProcessor
 
         options = base_options(args.proxy)
+        # 仅载入用户选定的文件，凭据保存在内存；不交给 yt-dlp 回写文件。
+        cookies = load_user_cookies(args.cookies, platform) if args.cookies else None
         url = resolve_video_url(url, args.proxy)
         if args.action == 'identify':
             with yt_dlp.YoutubeDL(options) as ydl:
+                if cookies is not None:
+                    ydl.cookiejar = cookies
                 info = ydl.extract_info(url, download=False)
             summary = video_summary(info)
             summary.update(platform=platform, url=url)
@@ -200,6 +247,8 @@ def run(argv: list[str]) -> int:
         options['progress_hooks'] = [progress]
         # 再次解析以刷新临时下载地址；先拒绝直播，再允许写入。
         with yt_dlp.YoutubeDL(options) as ydl:
+            if cookies is not None:
+                ydl.cookiejar = cookies
             info = ydl.extract_info(url, download=False)
             summary = video_summary(info)
             if args.output_format == 'mp3' and not summary['has_audio']:

@@ -149,3 +149,19 @@ def test_silent_video_cannot_be_downloaded_as_mp3(window):
     window.output_format.setCurrentIndex(1)
     assert not window.download_btn.isEnabled()
     assert '音轨' in window.status.text()
+
+
+def test_cookie_selection_is_optional_transient_and_locked_while_busy(window, tmp_path, monkeypatch):
+    from PySide6.QtWidgets import QFileDialog
+    filename = str(tmp_path / 'cookies.txt')
+    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (filename, ''))
+    window.choose_cookies()
+    assert window.cookies_path == filename
+    assert window.cookie_label.text() == 'cookies.txt'
+    assert not window.settings.contains('cookies')
+    window.set_busy(True)
+    assert not window.cookie_btn.isEnabled()
+    assert not window.cookie_clear_btn.isEnabled()
+    window.set_busy(False)
+    window.clear_cookies()
+    assert window.cookies_path == ''
