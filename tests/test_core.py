@@ -54,3 +54,36 @@ def test_invalid_quality_rejected():
 def test_network_error_is_actionable():
     assert '网络' in human_error('Unable to download webpage: timed out')
     assert '登录' in human_error('Sign in to confirm you’re not a bot')
+
+
+@pytest.mark.parametrize(('raw', 'expected'), [
+    ('https://www.tiktok.com/@creator/video/6748451240264420610?is_from_webapp=1',
+     'https://www.tiktok.com/@creator/video/6748451240264420610'),
+    ('tiktok.com/@creator.name/video/6748451240264420610',
+     'https://www.tiktok.com/@creator.name/video/6748451240264420610'),
+    ('https://www.tiktok.com/share/video/6748451240264420610/',
+     'https://www.tiktok.com/@_/video/6748451240264420610'),
+    ('https://www.tiktok.com/embed/6748451240264420610',
+     'https://www.tiktok.com/@_/video/6748451240264420610'),
+    ('https://vm.tiktok.com/ZM123Abcd/?share=1', 'https://vm.tiktok.com/ZM123Abcd/'),
+    ('https://vt.tiktok.com/ZSe4FqkKd/', 'https://vt.tiktok.com/ZSe4FqkKd/'),
+    ('https://www.tiktok.com/t/ZTRC5xgJp/', 'https://www.tiktok.com/t/ZTRC5xgJp/'),
+])
+def test_normalize_tiktok_video_and_short_links(raw, expected):
+    assert normalize_url(raw) == expected
+
+
+@pytest.mark.parametrize('url', [
+    'https://evil.tiktok.com/@creator/video/6748451240264420610',
+    'https://tiktok.com.evil.org/@creator/video/6748451240264420610',
+    'https://www.tiktok.com/@creator',
+    'https://www.tiktok.com/@creator/live',
+    'https://www.tiktok.com/@creator/photo/6748451240264420610',
+    'https://www.tiktok.com/@creator/video/../../secret',
+    'https://vm.tiktok.com/ZM123Abcd/extra',
+    'https://vt.tiktok.com/?url=https://evil.org',
+    'https://user:pass@www.tiktok.com/@creator/video/6748451240264420610',
+])
+def test_reject_invalid_tiktok_links(url):
+    with pytest.raises(ValueError):
+        normalize_url(url)

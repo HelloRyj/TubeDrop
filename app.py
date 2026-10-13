@@ -16,14 +16,15 @@ from PySide6.QtGui import QDesktopServices, QFont, QIcon, QPixmap
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow
 
-from core import duration_label, normalize_url
+from core import duration_label, normalize_url, platform_name, thumbnail_url_allowed
 from ui import build_window
+from version import VERSION
 
 
 class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
-        self.setWindowTitle('TubeDrop · YouTube 视频下载')
+        self.setWindowTitle('TubeDrop · YouTube / TikTok 视频下载')
         self.resize(780, 760)
         self.setMinimumSize(680, 600)
         self.settings = settings if settings is not None else QSettings('TubeDrop', 'TubeDrop')
@@ -118,7 +119,7 @@ class Window(QMainWindow):
         self.video_detail.setText('正在获取标题和可用画质，请稍候。')
         self.start_worker('identify', url)
         self.timeout_timer.start(90000)
-        self.show_status('正在连接 YouTube 并识别视频…')
+        self.show_status(f'正在连接 {platform_name(url)} 并识别视频…')
 
     def worker_command(self, action, url):
         if getattr(sys, 'frozen', False):
@@ -170,8 +171,10 @@ class Window(QMainWindow):
         elif kind == 'metadata':
             self.terminal_event = True
             self.video = event['video']
+            self.identified_url = self.video.get('url') or self.identified_url
             self.video_title.setText(self.video['title'])
-            self.video_detail.setText(f"{self.video['channel']}  ·  {duration_label(self.video['duration'])}")
+            details = [self.video.get('platform'), self.video['channel'], duration_label(self.video['duration'])]
+            self.video_detail.setText('  ·  '.join(item for item in details if item))
             self.quality.clear()
             self.quality.addItem('最高可用画质', None)
             for height in self.video['heights']:
@@ -219,7 +222,7 @@ class Window(QMainWindow):
         if self.thumbnail_reply:
             self.thumbnail_reply.abort()
         address = QUrl(url or '')
-        if address.scheme() != 'https' or address.host() not in {'i.ytimg.com', 'img.youtube.com'}:
+        if not thumbnail_url_allowed(url or ''):
             return
         generation = self.request_generation
         request = QNetworkRequest(address)
@@ -338,6 +341,7 @@ class Window(QMainWindow):
 def main():
     app = QApplication(sys.argv)
     app.setApplicationName('TubeDrop')
+    app.setApplicationVersion(VERSION)
     app.setStyle('Fusion')
     app.setFont(QFont('PingFang SC' if sys.platform == 'darwin' else 'Segoe UI', 11))
     window = Window()

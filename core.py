@@ -9,12 +9,15 @@ from urllib.parse import parse_qs, urlsplit
 
 VIDEO_ID = re.compile(r'^[A-Za-z0-9_-]{11}$')
 HOSTS = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'}
+TIKTOK_HOSTS = {'tiktok.com', 'www.tiktok.com', 'm.tiktok.com'}
+TIKTOK_SHORT_HOSTS = {'vm.tiktok.com', 'vt.tiktok.com'}
+TIKTOK_VIDEO = re.compile(r'/@(?P<user>[A-Za-z0-9_.-]*)/video/(?P<id>[0-9]{10,25})')
 
 
 def normalize_url(raw: str) -> str:
     raw = raw.strip()
     if not raw or len(raw) > 4096 or any(ord(c) < 32 for c in raw):
-        raise ValueError('请粘贴有效的 YouTube 视频链接。')
+        raise ValueError('请粘贴有效的 YouTube 或 TikTok 视频链接。')
     if '://' not in raw:
         raw = 'https://' + raw
     try:
@@ -24,6 +27,16 @@ def normalize_url(raw: str) -> str:
             raise ValueError
         host = parts.hostname
         path = parts.path.rstrip('/')
+        if host in TIKTOK_SHORT_HOSTS and re.fullmatch(r'/[A-Za-z0-9_]{5,100}', path):
+            return f'https://{host}{path}/'
+        if host in TIKTOK_HOSTS:
+            if re.fullmatch(r'/t/[A-Za-z0-9_]{5,100}', path):
+                return f'https://www.tiktok.com{path}/'
+            if match := TIKTOK_VIDEO.fullmatch(path):
+                return f'https://www.tiktok.com/@{match["user"] or "_"}/video/{match["id"]}'
+            if match := re.fullmatch(r'/(?:share/video|embed)/([0-9]{10,25})', path):
+                return f'https://www.tiktok.com/@_/video/{match[1]}'
+            raise ValueError
         if host == 'youtu.be':
             video_id = path[1:]
         elif host in HOSTS:
@@ -39,9 +52,29 @@ def normalize_url(raw: str) -> str:
         if not VIDEO_ID.fullmatch(video_id):
             raise ValueError
     except ValueError:
-        raise ValueError('请使用 YouTube 单个视频链接（支持普通视频和 Shorts）。') from None
+        raise ValueError('请使用 YouTube 或 TikTok 单个视频链接，支持分享短链接。') from None
     # 仅传递视频 ID，去除播放列表、跳转参数和分享追踪信息。
     return f'https://www.youtube.com/watch?v={video_id}'
+
+
+def platform_name(url: str) -> str:
+    return 'TikTok' if urlsplit(url).hostname in TIKTOK_HOSTS | TIKTOK_SHORT_HOSTS else 'YouTube'
+
+
+def is_tiktok_short_url(url: str) -> bool:
+    parts = urlsplit(url)
+    return parts.hostname in TIKTOK_SHORT_HOSTS or (
+        parts.hostname in TIKTOK_HOSTS and parts.path.startswith('/t/'))
+
+
+def thumbnail_url_allowed(url: str) -> bool:
+    parts = urlsplit(url)
+    if parts.scheme != 'https' or parts.username or parts.password:
+        return False
+    host = parts.hostname or ''
+    return host in {'i.ytimg.com', 'img.youtube.com'} or any(
+        host == domain or host.endswith('.' + domain)
+        for domain in ('tiktokcdn.com', 'tiktokcdn-us.com', 'ibytedtos.com', 'byteoversea.com'))
 
 
 def available_heights(formats: list[dict]) -> list[int]:
@@ -91,15 +124,15 @@ def dependency_options() -> dict:
     return options
 
 
-def human_error(message: str) -> str:
+def human_error(message: str, platform: str = 'YouTube') -> str:
     clean = re.sub(r'\x1b\[[0-9;]*m', '', str(message))
     lower = clean.lower()
     if any(word in lower for word in ('sign in', 'private video', 'age-restricted', 'members-only')):
         return '此视频要求登录或访问权限，当前版本无法下载。可尝试其他公开视频。'
     if any(word in lower for word in ('timed out', 'timeout', 'network', 'proxy', 'connection', 'resolve')):
-        return '网络连接失败，请检查是否能访问 YouTube，或配置代理后重试。'
-    if '403' in lower or '429' in lower or 'bot' in lower:
-        return 'YouTube 暂时限制了访问，请稍后重试或更换可访问 YouTube 的网络。'
+        return f'网络连接失败，请检查是否能访问 {platform}，或配置代理后重试。'
+    if any(word in lower for word in ('403', '429', 'bot', 'ip address is blocked')):
+        return f'{platform} 暂时限制了访问，请稍后重试或更换网络。'
     if any(word in lower for word in ('unavailable', 'removed', 'not available')):
         return '视频不可用、已删除或受到地区限制，请尝试其他链接。'
     if 'requested format' in lower:

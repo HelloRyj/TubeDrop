@@ -13,5 +13,6 @@
 | Node.js | [Node.js 许可](https://github.com/nodejs/node/blob/main/LICENSE) |
 | PyInstaller bootloader | [PyInstaller 许可及特殊例外](https://pyinstaller.org/en/stable/license.html) |
 | NSIS 安装器 | [NSIS 许可](https://nsis.sourceforge.io/License)；zlib/libpng 许可 |
+| curl_cffi | [MIT 许可](https://github.com/lexiforest/curl_cffi/blob/main/LICENSE)；其捆绑 curl 等组件适用原始许可 |
 
 应用提供完整 TubeDrop 源码、依赖锁定文件和构建脚本，便于本地修改和重建。

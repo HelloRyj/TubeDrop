@@ -8,8 +8,7 @@ import tempfile
 from pathlib import Path
 
 from core import runtime_path
-
-VERSION = '1.1.0'
+from version import VERSION
 
 
 def install_bundle(root):
@@ -80,6 +79,7 @@ def main():
         '--add-binary', f'{Path(node).resolve()}:bin',
         '--collect-all', 'yt_dlp', '--collect-all', 'yt_dlp_ejs',
         '--collect-all', 'imageio_ffmpeg', '--collect-all', 'certifi',
+        '--collect-all', 'curl_cffi',
         '--copy-metadata', 'yt-dlp', '--copy-metadata', 'requests',
         '--distpath', str(root / 'build' / 'dist'), '--workpath', str(root / 'build' / 'temp'),
         '--specpath', str(root / 'build'), str(root / 'app.py'),

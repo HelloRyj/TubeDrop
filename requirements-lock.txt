@@ -1,6 +1,8 @@
 altgraph==0.17.5
 boolean.py==5.0
 brotli==1.2.0
+cffi==2.1.1
+curl_cffi==0.16.3
 CacheControl==0.14.4
 certifi==2026.7.22
 charset-normalizer==3.5.2
@@ -25,6 +27,7 @@ platformdirs==4.12.4
 pluggy==1.6.0
 py-serializable==2.1.0
 pycryptodomex==3.24.0
+pycparser==3.11
 Pygments==2.21.0
 pyinstaller==6.22.3
 pyinstaller-hooks-contrib==2026.8

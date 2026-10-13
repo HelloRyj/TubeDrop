@@ -1,5 +1,20 @@
 # 交付验证
 
+## 1.2.0 — 2026-10-13
+
+- 完整自动测试：67 项通过。新增 TikTok 链接规范化、短链接逐跳校验与次数上限、封面域名限制、识别后使用完整链接的界面回归测试；真实本地 HTTP / FFmpeg 下载集成覆盖 YouTube 和 TikTok 元数据。
+- 真实 TikTok：公开视频 `@hankgreen1/video/7047596209028074758` 已通过源码和最终 Mac 应用下载为 MP4。最终应用产物 1,790,611 字节，21.27 秒，576 × 1024 HEVC 视频与 AAC 音频；FFmpeg 完整解码检查通过。
+- YouTube 回归：最终 Mac 应用下载 `jNQXAC9IVRw` 成功，含 19.02 秒视频与音频，FFmpeg 完整解码检查通过。测试文件仅保存在本任务 work 目录。
+- 短链接：自动测试验证合法逐跳解析、跨站/内网/主页拒绝和循环上限。实测的上游旧分享短链接跳转到 TikTok 首页，已正确报告需改用完整视频链接；未将该样例记为短链接下载成功。
+- 访问限制：另一公开样例返回 TikTok IP 访问限制，程序正确显示平台错误；不能保证每个视频、地区或网络都可下载。
+- macOS：生成 TubeDrop-1.2.0-macOS-arm64.pkg，完整展开成功。固定载荷 Applications/TubeDrop.app，禁止重定位，版本 1.2.0；展开后的应用通过 codesign 深度严格校验。未向系统 /Applications 执行实际安装。
+- Windows：生成 TubeDrop-1.2.0-Windows-x64-Setup.exe；7-Zip 完整检查通过，共 4382 个文件。已核实包含新增 curl_cffi 原生 DLL、CFFI 后端和共享版本模块。17 个官方 wheel 的 SHA256 与清单一致。
+- 依赖：Mac 环境与 Windows 锁定依赖分别通过 pip-audit，未发现已知漏洞；curl_cffi 已随两端安装包捆绑。
+- 界面：更新 YouTube / TikTok 平台提示与输入说明，重新生成 iOS 风格离屏预览。当前 Mac 锁屏，未执行可见窗口交互复核。
+- 语法检查、git diff --check 通过；下载仍未配置 ratelimit 或人为等待。安装器校验值见 TubeDrop-1.2.0-SHA256.txt。
+
+Windows 上的实际安装、启动、识别、下载、取消及卸载尚未验证；当前没有 Windows 环境。安装包未做商业代码签名或 Apple 公证。实际短链接是否有效还取决于 TikTok 返回的跳转目标。
+
 ## 1.1.0 — 2026-10-12
 
 - 完整测试：35 项通过，包括 Windows 运行路径、pythonw/python 后台入口和中文 UTF-8 管道回归测试。Windows Job Object 的系统级行为尚需 Windows 实机确认。

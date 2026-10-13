@@ -8,9 +8,10 @@ import sys
 import time
 import uuid
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
-from core import available_heights, dependency_options, format_selector, human_error, normalize_url
+from core import (available_heights, dependency_options, format_selector, human_error,
+                  is_tiktok_short_url, normalize_url, platform_name)
 
 
 def configure_stdio():
@@ -38,6 +39,42 @@ class QuietLogger:
         print(message, file=sys.stderr, flush=True)
 
 
+def resolve_video_url(url: str, proxy: str = '', fetch=None) -> str:
+    url = normalize_url(url)
+    if not is_tiktok_short_url(url):
+        return url
+    if fetch is None:
+        from curl_cffi import requests
+        def fetch(address):
+            response = requests.head(address, allow_redirects=False, impersonate='chrome',
+                                     proxy=proxy or None, timeout=20)
+            if response.status_code in {403, 405}:
+                response.close()
+                response = requests.get(address, allow_redirects=False, impersonate='chrome',
+                                        proxy=proxy or None, timeout=20, stream=True)
+            return response
+    # 逐跳校验，禁止短链接带我们访问其他平台、用户主页或内网地址。
+    for _ in range(5):
+        response = fetch(url)
+        try:
+            response.raise_for_status()
+            location = response.headers.get('Location')
+            if response.status_code not in {301, 302, 303, 307, 308} or not location:
+                raise ValueError('TikTok 短链接未能跳转到视频，请复制完整视频链接后重试。')
+            try:
+                destination = normalize_url(urljoin(url, location))
+            except ValueError:
+                raise ValueError('TikTok 短链接跳转目标无效，请复制完整视频链接后重试。') from None
+            if platform_name(destination) != 'TikTok':
+                raise ValueError('TikTok 短链接跳转到其他网站，已停止识别。')
+        finally:
+            response.close()
+        if not is_tiktok_short_url(destination):
+            return destination
+        url = destination
+    raise ValueError('TikTok 短链接跳转次数过多，请使用完整视频链接。')
+
+
 def video_summary(info: dict) -> dict:
     if not info or info.get('_type') in {'playlist', 'multi_video'}:
         raise ValueError('请使用单个视频链接。')
@@ -48,6 +85,7 @@ def video_summary(info: dict) -> dict:
         'channel': info.get('uploader') or info.get('channel') or '未知频道',
         'duration': info.get('duration'), 'thumbnail': info.get('thumbnail'),
         'heights': available_heights(info.get('formats') or []),
+        'platform': 'TikTok' if str(info.get('extractor_key') or '').lower().startswith('tiktok') else 'YouTube',
     }
 
 
@@ -97,16 +135,20 @@ def run(argv: list[str]) -> int:
     parser.add_argument('--height', type=int)
     parser.add_argument('--proxy', default='')
     args = parser.parse_args(argv)
+    platform = '视频平台'
     try:
         url = normalize_url(args.url)
+        platform = platform_name(url)
         import yt_dlp
         from yt_dlp.postprocessor import PostProcessor
 
         options = base_options(args.proxy)
+        url = resolve_video_url(url, args.proxy)
         if args.action == 'identify':
             with yt_dlp.YoutubeDL(options) as ydl:
                 info = ydl.extract_info(url, download=False)
             summary = video_summary(info)
+            summary.update(platform=platform, url=url)
             if not summary['heights']:
                 raise ValueError('未找到可下载的视频画质，请稍后重试。')
             emit('metadata', video=summary)
@@ -151,7 +193,7 @@ def run(argv: list[str]) -> int:
         emit('complete', path=str(final_paths[-1]))
         return 0
     except Exception as error:
-        emit('error', message=human_error(str(error)))
+        emit('error', message=human_error(str(error), platform))
         return 1
 
 

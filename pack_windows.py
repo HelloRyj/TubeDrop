@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import zipfile
 from pathlib import Path
+from version import VERSION
 
 
 def extract_archive(source, target):
@@ -34,7 +35,7 @@ def prepare_payload(source_root, cache, manifest, runtime_manifest, payload):
     app = payload / 'app'
     app.mkdir(exist_ok=True)
     for name in ('app.py', 'ui.py', 'core.py', 'worker.py', 'winjob.py',
-                 'windows_launcher.py', 'icon.png', 'icon.ico', 'README.md', 'THIRD_PARTY.md'):
+                 'windows_launcher.py', 'version.py', 'icon.png', 'icon.ico', 'README.md', 'THIRD_PARTY.md'):
         shutil.copy2(source_root / name, app / name)
     binary_dir = payload / 'bin'
     binary_dir.mkdir(exist_ok=True)
@@ -56,9 +57,9 @@ def main():
     root = Path(__file__).resolve().parent
     prepare_payload(root, args.cache, json.loads(args.manifest.read_text()),
                     json.loads(args.runtimes.read_text()), args.payload)
-    output = root.parent / 'TubeDrop-1.1.0-Windows-x64-Setup.exe'
+    output = root.parent / f'TubeDrop-{VERSION}-Windows-x64-Setup.exe'
     subprocess.run([args.makensis, '-V3', f'-DPAYLOAD={args.payload.resolve()}',
-                    f'-DOUTPUT={output}', str(root / 'installer' / 'windows.nsi')], check=True)
+                    f'-DOUTPUT={output}', f'-DVERSION={VERSION}', str(root / 'installer' / 'windows.nsi')], check=True)
     print(f'Windows 安装包已生成：{output}')
 
 

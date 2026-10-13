@@ -1,4 +1,7 @@
 Unicode true
+!ifndef VERSION
+!define VERSION "1.2.0"
+!endif
 !include "MUI2.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
@@ -15,10 +18,10 @@ ShowInstDetails show
 ShowUninstDetails show
 Icon "${PAYLOAD}/app/icon.ico"
 UninstallIcon "${PAYLOAD}/app/icon.ico"
-VIProductVersion "1.1.0.0"
+VIProductVersion "${VERSION}.0"
 VIAddVersionKey "ProductName" "TubeDrop"
 VIAddVersionKey "FileDescription" "TubeDrop Windows Installer"
-VIAddVersionKey "FileVersion" "1.1.0"
+VIAddVersionKey "FileVersion" "${VERSION}"
 VIAddVersionKey "LegalCopyright" "TubeDrop contributors"
 
 !define MUI_ABORTWARNING
@@ -63,7 +66,7 @@ Section "TubeDrop"
   CreateShortcut "$SMPROGRAMS\TubeDrop\卸载 TubeDrop.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\TubeDrop\Installer" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "DisplayName" "TubeDrop"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "DisplayVersion" "1.1.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "DisplayVersion" "${VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "DisplayIcon" "$INSTDIR\app\icon.ico"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\TubeDrop" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'

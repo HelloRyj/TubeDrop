@@ -184,5 +184,70 @@
       "hypothesis>=6.141.1; extra == \"all\"",
       "coverage>=7.10.0; extra == \"all\""
     ]
+  },
+  {
+    "name": "curl-cffi",
+    "version": "0.16.3",
+    "filename": "curl_cffi-0.16.3-cp310-abi3-win_amd64.whl",
+    "url": "https://files.pythonhosted.org/packages/9b/72/1732a24ef4a2aeba994b80ec163debe8deda403c07e4abbc0443bca078b8/curl_cffi-0.16.3-cp310-abi3-win_amd64.whl",
+    "sha256": "fe87b66e324ed7318166698e02169f3208dbda32b872a27d2bc61a9c19b335eb",
+    "size": 1978602,
+    "requires": [
+      "cffi>=2.0.0",
+      "certifi>=2024.2.2",
+      "readability-lxml>=0.8.1; extra == \"extra\"",
+      "markdownify>=1.1.0; extra == \"extra\"",
+      "lxml_html_clean; extra == \"extra\"",
+      "rich; extra == \"cli\"",
+      "charset_normalizer<4.0,>=3.3.2; extra == \"dev\"",
+      "coverage<7.0,>=6.4.1; extra == \"dev\"",
+      "cryptography<47.0,>=46.0.4; extra == \"dev\"",
+      "httpx==0.23.1; extra == \"dev\"",
+      "pytest<9.0,>=8.1.1; extra == \"dev\"",
+      "pytest-asyncio<1.0,>=0.23.6; extra == \"dev\"",
+      "pytest-trio<1.0,>=0.8.0; extra == \"dev\"",
+      "ruff<1.0,>=0.3.5; extra == \"dev\"",
+      "trio<1.0,>=0.25.0; extra == \"dev\"",
+      "trustme<2.0,>=1.1.0; extra == \"dev\"",
+      "uvicorn<1.0,>=0.29.0; extra == \"dev\"",
+      "websockets>=14.0; extra == \"dev\"",
+      "typing_extensions; extra == \"dev\"",
+      "cibuildwheel; extra == \"build\"",
+      "wheel; extra == \"build\"",
+      "charset_normalizer<4.0,>=3.3.2; extra == \"test\"",
+      "cryptography<47.0,>=46.0.4; extra == \"test\"",
+      "litestar<3.0,>=2.19.0; extra == \"test\"",
+      "httpx==0.23.1; extra == \"test\"",
+      "proxy.py<3.0,>=2.4.3; extra == \"test\"",
+      "pytest<9.0,>=8.1.1; extra == \"test\"",
+      "pytest-asyncio<1.0,>=0.23.6; extra == \"test\"",
+      "pytest-trio<1.0,>=0.8.0; extra == \"test\"",
+      "python-multipart<1.0,>=0.0.9; extra == \"test\"",
+      "trio<1.0,>=0.25.0; extra == \"test\"",
+      "trustme<2.0,>=1.1.0; extra == \"test\"",
+      "uvicorn<1.0,>=0.29.0; extra == \"test\"",
+      "websockets>=14.0; extra == \"test\"",
+      "typing_extensions; extra == \"test\""
+    ]
+  },
+  {
+    "name": "cffi",
+    "version": "2.1.1",
+    "filename": "cffi-2.1.1-cp314-cp314-win_amd64.whl",
+    "url": "https://files.pythonhosted.org/packages/a7/06/1c3e01e3ba14c39f6d10bfbac52753b7e22259e38088e5cfe1d704918690/cffi-2.1.1-cp314-cp314-win_amd64.whl",
+    "sha256": "3222ba5d678f80a030e6afbcc33dc1ae5cb45facabb61cee2c7016b8432fde48",
+    "size": 187949,
+    "requires": [
+      "pycparser; implementation_name != \"PyPy\""
+    ]
+  },
+  {
+    "name": "pycparser",
+    "version": "3.11",
+    "filename": "pycparser-3.11-py3-none-any.whl",
+    "url": "https://files.pythonhosted.org/packages/90/11/0e6f11117525ff0eec40ebac3d313376f102df93ca44ad9e893ee85e4f89/pycparser-3.11-py3-none-any.whl",
+    "sha256": "51d5a8ba2be0bbe440b99d2112604c95bbbc3c2748a64260186c541e1729cd80",
+    "size": 51178,
+    "requires": []
   }
 ]

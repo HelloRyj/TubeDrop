@@ -8,11 +8,16 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
 import imageio_ffmpeg
 import yt_dlp
+import pytest
 
 from worker import run
 
 
-def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys):
+@pytest.mark.parametrize(('url', 'video_id', 'extractor'), [
+    ('https://youtu.be/BaW_jenozKc', 'BaW_jenozKc', 'Youtube'),
+    ('https://www.tiktok.com/@creator/video/6748451240264420610', '6748451240264420610', 'TikTok'),
+])
+def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, video_id, extractor):
     media = tmp_path / 'media'
     media.mkdir()
     destination = tmp_path / 'saved'
@@ -34,9 +39,9 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys):
     thread.start()
     origin = f'http://127.0.0.1:{server.server_port}'
     info = {
-        'id': 'BaW_jenozKc', 'title': '../../本地合并测试', 'duration': 0.5,
-        'extractor': 'youtube', 'extractor_key': 'Youtube',
-        'webpage_url': 'https://www.youtube.com/watch?v=BaW_jenozKc',
+        'id': video_id, 'title': '../../本地合并测试', 'duration': 0.5,
+        'extractor': extractor.lower(), 'extractor_key': extractor,
+        'webpage_url': url,
         'formats': [
             {'format_id': 'audio', 'url': origin + '/audio.m4a', 'ext': 'm4a',
              'vcodec': 'none', 'acodec': 'mp4a.40.2', 'abr': 128},
@@ -51,7 +56,7 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys):
         # 测试进程不加入 job，实际后台子进程由专门的 Windows 取消测试覆盖。
         monkeypatch.setattr('winjob.assign_worker_job', lambda: None)
     try:
-        code = run(['download', 'https://youtu.be/BaW_jenozKc', '--folder', str(destination)])
+        code = run(['download', url, '--folder', str(destination)])
     finally:
         server.shutdown()
         server.server_close()
