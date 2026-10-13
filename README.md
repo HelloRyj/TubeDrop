@@ -1,12 +1,12 @@
-# TubeDrop 1.3.1
+# TubeDrop 1.3.2
 
 简约 iOS 风格的 YouTube / TikTok / 抖音 桌面下载工具。粘贴链接，自动识别视频，选择画质和目录后保存为 MP4 视频或 MP3 音频。视频下载不设置速度上限或人为等待。
 
 ## 安装和使用
 
-**macOS：**双击 `TubeDrop-1.3.1-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
+**macOS：**双击 `TubeDrop-1.3.2-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
 
-**Windows：**双击 `TubeDrop-1.3.1-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
+**Windows：**双击 `TubeDrop-1.3.2-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
 
 **验证边界：**Mac 包已完成测试、签名校验和安装载荷检查。Windows 安装器已在 Mac 上跨平台编译，运行组件使用官方 Windows 发行包且逐文件校验；当前没有 Windows 电脑，尚未完成 Windows 上的实际启动、下载和卸载验证。Windows 包应先在目标电脑试用。安装包尚未进行 Apple 公证或商业代码签名，外部分发可能出现系统发布者提示。
 
@@ -26,7 +26,9 @@ TikTok 可能拒绝部分地区或 IP。已实测一条公开 TikTok 视频的�
 
 三个平台都可选择 **MP4 视频** 或 **MP3 音频 · 192 kbps**。MP4 可选画质；MP3 通过 FFmpeg 转换，画质选择自动禁用。TikTok / 抖音优先提取原视频的声音，避免保存成单独的背景音乐。原视频无音轨时，MP3 会提示不可用；转换不会提高原音频的音质。
 
-应用直接尝试解析和下载公开视频，界面不提供访问验证、登录或 Cookie 导入。抖音可能在平台端限制部分视频或网络；遇到限制会显示失败原因，可稍后重试或更换公开视频链接。移除工具中的验证入口不能消除平台本身的限制。
+抖音原详情接口失败时，1.3.2 会自动改用移动分享页解析。临时游客会话仅保留在下载进程内存中，无需登录、手动验证或导入 Cookie，不读取浏览器信息，也不使用第三方解析服务。已实测公开抖音视频 MP4 / MP3 下载成功；平台仍可能返回空数据或拒绝请求，不能保证所有作品都可下载。
+
+分享页未提供可靠的流分辨率时，仅显示“最高可用画质”，保存平台实际返回的播放流；不承诺无水印或 4K。无法解析时可点击识别重试。
 
 ## 技术和源码运行
 
