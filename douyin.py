@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import urlsplit
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from core import normalize_url, platform_name
 
@@ -12,6 +12,19 @@ MOBILE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) '
              'Mobile/15E148 Safari/604.1')
 MAX_PAGE_BYTES = 2 * 1024 * 1024
 MEDIA_HOSTS = ('snssdk.com', 'douyinvod.com', 'douyincdn.com', 'bytecdn.cn', 'ibytedtos.com')
+
+
+def original_playback_url(url: str) -> str:
+    parts = urlsplit(url)
+    # 仅转换已验证的官方接口，避免破坏 CDN 签名或误改其他站点地址。
+    if (parts.scheme != 'https' or parts.netloc != 'aweme.snssdk.com'
+            or parts.path != '/aweme/v1/playwm/'):
+        return url
+    query = dict(parse_qsl(parts.query))
+    if not re.fullmatch(r'[A-Za-z0-9_-]+', query.get('video_id', '')):
+        return url
+    query['ratio'] = '1080p'
+    return urlunsplit((parts.scheme, parts.netloc, '/aweme/v1/play/', urlencode(query), ''))
 
 
 def media_url_allowed(url):
@@ -42,7 +55,7 @@ def parse_share_page(html: str, video_id: str) -> dict:
             raise ValueError('此作品是图集，当前下载入口仅支持视频。')
         video = item['video']
         urls = (video.get('play_addr') or {}).get('url_list') or []
-        urls = list(dict.fromkeys(url for url in urls if media_url_allowed(url)))
+        urls = list(dict.fromkeys(original_playback_url(url) for url in urls if media_url_allowed(url)))
         if not urls:
             raise ValueError('分享页未返回可用的视频播放地址。')
         duration = video.get('duration')
@@ -57,7 +70,7 @@ def parse_share_page(html: str, video_id: str) -> dict:
             # 页面原始尺寸不一定等于播放流尺寸，不能冒充可下载的 1080p / 4K。
             'formats': [{'format_id': f'share-{index}', 'url': url, 'ext': 'mp4',
                          'vcodec': 'unknown', 'acodec': 'unknown',
-                         'format_note': '分享页视频'} for index, url in enumerate(urls)],
+                         'format_note': '原始播放视频'} for index, url in enumerate(urls)],
         }
     except (KeyError, TypeError, AttributeError, StopIteration, json.JSONDecodeError):
         raise ValueError('分享页未返回有效的作品数据。') from None

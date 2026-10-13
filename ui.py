@@ -143,6 +143,7 @@ def build_window(window):
     folder_column.addLayout(folder_row)
     settings_row.addLayout(folder_column, 2)
     save_card.addLayout(settings_row)
+    save_card.addWidget(label('优先无水印源；部分视频仍可能带水印。', 'muted', True))
 
     proxy_row = QHBoxLayout()
     proxy_row.addWidget(label('代理（可选）', 'muted'))

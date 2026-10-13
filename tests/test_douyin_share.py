@@ -3,7 +3,7 @@ import json
 import pytest
 import yt_dlp
 
-from douyin import parse_share_page, extract_share_video
+from douyin import parse_share_page, extract_share_video, original_playback_url
 from worker import extract_video_info
 
 VIDEO_ID = '6961737553342991651'
@@ -27,7 +27,7 @@ def test_share_page_extracts_matching_video_without_guessing_stream_resolution()
     assert info['title'] == '中文 {标题} "测试"'
     assert info['duration'] == 12.5
     assert info['uploader'] == '作者'
-    assert info['formats'][0]['url'] == PLAY
+    assert info['formats'][0]['url'] == original_playback_url(PLAY)
     assert not info['formats'][0].get('height')
     assert info['formats'][0]['acodec'] != 'none'
 
@@ -131,7 +131,7 @@ def test_worker_uses_share_page_after_upstream_douyin_failure(monkeypatch):
     with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
         info = extract_video_info(ydl, URL)
     assert info['id'] == VIDEO_ID
-    assert info['formats'][0]['url'] == PLAY
+    assert info['formats'][0]['url'] == original_playback_url(PLAY)
 
 
 def test_other_platform_failures_do_not_call_douyin(monkeypatch):

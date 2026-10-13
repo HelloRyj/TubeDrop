@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import uuid
@@ -95,16 +96,46 @@ def video_summary(info: dict) -> dict:
     }
 
 
+class NoOriginalVideo(ValueError):
+    """排除已知水印版本后，未找到候选播放源。"""
+
+
+def original_video_formats(info: dict, platform: str) -> dict:
+    # 元数据只能排除已知水印源，不能证明视频像素中没有水印。
+    formats = []
+    for source in info.get('formats') or []:
+        candidate = dict(source)
+        note = str(candidate.get('format_note') or '').lower()
+        marked = (candidate.get('has_watermark') or candidate.get('watermarked')
+                  or re.search(r'\bwatermarked\b', note)
+                  or '/playwm/' in urlsplit(candidate.get('url') or '').path)
+        # TikTok 下载专用流可能带水印；只保留播放流与其音轨。
+        download_copy = (platform in {'TikTok', '抖音'}
+                         and str(candidate.get('format_id') or '').startswith('download'))
+        if not marked and not download_copy:
+            formats.append(candidate)
+    if not formats or (platform in {'TikTok', '抖音'} and not any(
+            f.get('vcodec') not in {None, 'none'} for f in formats)):
+        raise NoOriginalVideo('未找到可用的原始播放源，已停止下载；不会自动改用已知带水印版本或背景音乐。')
+    result = {**info, 'formats': formats}
+    # 删除旧选择结果，保证后续画质选择只能使用过滤后的来源。
+    for key in ('url', 'requested_downloads', 'requested_formats', 'format_id'):
+        result.pop(key, None)
+    return result
+
+
 def extract_video_info(ydl, url: str, proxy: str = '') -> dict:
     from yt_dlp.utils import DownloadError
+    platform = platform_name(url)
     try:
-        return ydl.extract_info(url, download=False)
-    except DownloadError:
-        if platform_name(url) != '抖音':
+        raw = ydl.extract_info(url, download=False, process=False)
+        info = original_video_formats(raw, platform)
+    except (DownloadError, NoOriginalVideo):
+        if platform != '抖音':
             raise
         # 旧详情接口失效时改用公开分享页，继续复用原有下载及格式转换。
-        info = extract_share_video(url, proxy)
-        return ydl.process_ie_result(info, download=False)
+        info = original_video_formats(extract_share_video(url, proxy), platform)
+    return ydl.process_ie_result(info, download=False)
 
 
 def base_options(proxy: str = '') -> dict:

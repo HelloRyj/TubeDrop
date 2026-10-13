@@ -18,8 +18,9 @@ def test_worker_identifies_douyin_without_user_access_files(monkeypatch, capsys)
     def identify(ydl, url, **kwargs):
         assert ydl.params.get('cookiefile') is None
         assert ydl.params.get('cookiesfrombrowser') is None
-        return {'id': '6961737553342991651', 'extractor_key': 'Douyin',
-                'formats': [{'height': 720, 'vcodec': 'avc1', 'acodec': 'aac'}]}
+        return {'id': '6961737553342991651', 'title': 'Test', 'extractor_key': 'Douyin',
+                'formats': [{'height': 720, 'vcodec': 'avc1', 'acodec': 'aac',
+                             'url': 'https://v3.douyinvod.com/video.mp4', 'ext': 'mp4'}]}
     monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', identify)
     assert run(['identify', 'https://www.douyin.com/video/6961737553342991651']) == 0
     events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
