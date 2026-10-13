@@ -32,6 +32,32 @@ def test_download_never_overwrites_existing_file(tmp_path):
     assert options['format'].endswith('/b[height<=720]')
 
 
+@pytest.mark.parametrize('platform', ['YouTube', 'TikTok', '抖音'])
+def test_mp3_options_extract_audio_without_video_remux(tmp_path, platform):
+    options = download_options(tmp_path, 720, 'mp3', platform)
+    assert 'height' not in options['format']
+    assert 'merge_output_format' not in options
+    assert options['postprocessors'] == [
+        {'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3', 'preferredquality': '192'},
+    ]
+    if platform != 'YouTube':
+        assert options['format'].startswith('b[acodec!=none]')
+
+
+def test_download_rejects_unknown_output_format(tmp_path):
+    with pytest.raises(ValueError, match='格式'):
+        download_options(tmp_path, None, 'wav')
+
+
+def test_summary_reports_audio_capability_and_douyin_platform():
+    result = video_summary({'extractor_key': 'Douyin', 'formats': [
+        {'height': 720, 'vcodec': 'avc1', 'acodec': 'none'},
+    ]})
+    assert result['has_video'] is True
+    assert result['has_audio'] is False
+    assert result['platform'] == '抖音'
+
+
 def test_worker_invalid_url_reports_structured_error():
     script = Path(__file__).resolve().parents[1] / 'app.py'
     result = subprocess.run([sys.executable, str(script), '--worker', 'identify',

@@ -81,12 +81,16 @@ def video_summary(info: dict) -> dict:
         raise ValueError('请使用单个视频链接。')
     if info.get('is_live') or info.get('live_status') in {'is_live', 'is_upcoming', 'post_live'}:
         raise ValueError('当前版本支持已发布的视频，暂不支持直播或预告。')
+    formats = info.get('formats') or []
+    extractor = str(info.get('extractor_key') or '').lower()
     return {
         'id': info.get('id'), 'title': info.get('title') or '未命名视频',
         'channel': info.get('uploader') or info.get('channel') or '未知频道',
         'duration': info.get('duration'), 'thumbnail': info.get('thumbnail'),
-        'heights': available_heights(info.get('formats') or []),
-        'platform': 'TikTok' if str(info.get('extractor_key') or '').lower().startswith('tiktok') else 'YouTube',
+        'heights': available_heights(formats),
+        'has_video': any(f.get('vcodec') not in {None, 'none'} for f in formats),
+        'has_audio': any(f.get('acodec') not in {None, 'none'} for f in formats),
+        'platform': '抖音' if extractor == 'douyin' else 'TikTok' if extractor.startswith('tiktok') else 'YouTube',
     }
 
 
@@ -105,15 +109,25 @@ def base_options(proxy: str = '') -> dict:
     return options
 
 
-def download_options(folder: Path, height: int | None) -> dict:
+def download_options(folder: Path, height: int | None, output_format: str = 'mp4',
+                     platform: str = 'YouTube') -> dict:
+    if output_format not in {'mp4', 'mp3'}:
+        raise ValueError('请选择 MP4 视频或 MP3 音频格式。')
     token = uuid.uuid4().hex[:8]
-    return {
-        'noplaylist': True, 'format': format_selector(height),
+    options = {
+        'noplaylist': True,
         'outtmpl': str(folder / f'%(title).160B [%(id)s]-{token}.%(ext)s'),
         'overwrites': False, 'windowsfilenames': True,
-        'merge_output_format': 'mp4',
-        'postprocessors': [{'key': 'FFmpegVideoRemuxer', 'preferedformat': 'mp4'}],
     }
+    if output_format == 'mp3':
+        # 短视频平台的独立音频可能只是配乐，优先提取完整视频的声音。
+        options.update(format='ba/b[acodec!=none]' if platform == 'YouTube' else 'b[acodec!=none]/ba',
+                       postprocessors=[{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3',
+                                        'preferredquality': '192'}])
+    else:
+        options.update(format=format_selector(height), merge_output_format='mp4',
+                       postprocessors=[{'key': 'FFmpegVideoRemuxer', 'preferedformat': 'mp4'}])
+    return options
 
 
 def run(argv: list[str]) -> int:
@@ -134,6 +148,7 @@ def run(argv: list[str]) -> int:
     parser.add_argument('url')
     parser.add_argument('--folder', default='')
     parser.add_argument('--height', type=int)
+    parser.add_argument('--output-format', choices=['mp4', 'mp3'], default='mp4')
     parser.add_argument('--proxy', default='')
     args = parser.parse_args(argv)
     platform = '视频平台'
@@ -150,15 +165,15 @@ def run(argv: list[str]) -> int:
                 info = ydl.extract_info(url, download=False)
             summary = video_summary(info)
             summary.update(platform=platform, url=url)
-            if not summary['heights']:
-                raise ValueError('未找到可下载的视频画质，请稍后重试。')
+            if not summary['has_video'] and not summary['has_audio']:
+                raise ValueError('未找到可下载的音视频，请稍后重试。')
             emit('metadata', video=summary)
             return 0
 
         folder = Path(args.folder).expanduser().resolve()
         if not args.folder or not folder.is_dir():
             raise ValueError('请选择存在的保存目录。')
-        options.update(download_options(folder, args.height))
+        options.update(download_options(folder, args.height, args.output_format, platform))
         last_update = 0.0
 
         def progress(data):
@@ -186,12 +201,17 @@ def run(argv: list[str]) -> int:
         # 再次解析以刷新临时下载地址；先拒绝直播，再允许写入。
         with yt_dlp.YoutubeDL(options) as ydl:
             info = ydl.extract_info(url, download=False)
-            video_summary(info)
+            summary = video_summary(info)
+            if args.output_format == 'mp3' and not summary['has_audio']:
+                raise ValueError('此视频没有可下载的音轨，请选择 MP4 或尝试其他视频。')
+            if args.output_format == 'mp4' and not summary['has_video']:
+                raise ValueError('此链接仅有音频，请选择 MP3。')
             ydl.add_post_processor(FinalFile(), when='after_move')
             ydl.process_ie_result(info, download=True)
-        if not final_paths or not all(p.is_file() and p.is_relative_to(folder) for p in final_paths):
+        if not final_paths or not all(p.is_file() and p.stat().st_size > 0 and p.is_relative_to(folder)
+                                      and p.suffix.lower() == '.' + args.output_format for p in final_paths):
             raise RuntimeError('下载未生成完整文件，请重试。')
-        emit('complete', path=str(final_paths[-1]))
+        emit('complete', path=str(final_paths[-1]), output_format=args.output_format)
         return 0
     except Exception as error:
         emit('error', message=human_error(str(error), platform))

@@ -115,3 +115,37 @@ def test_tiktok_metadata_uses_resolved_link_for_download(window):
     assert window.identified_url == url
     assert 'TikTok' in window.video_detail.text()
     assert window.download_btn.isEnabled()
+
+
+def test_mp3_selection_disables_quality_and_passes_format(window):
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': '抖音视频', 'channel': '作者', 'duration': 13,
+        'heights': [720], 'thumbnail': None, 'platform': '抖音',
+        'url': 'https://www.douyin.com/video/6961737553342991651',
+        'has_audio': True, 'has_video': True,
+    }})
+    window.output_format.setCurrentIndex(1)
+    assert not window.quality.isEnabled()
+    calls = []
+    window.start_worker = lambda *args: calls.append(args)
+    window.download()
+    extra = calls[0][2]
+    assert extra[extra.index('--output-format') + 1] == 'mp3'
+    assert '--height' not in extra
+    window.set_busy(True)
+    assert not window.output_format.isEnabled()
+    window.set_busy(False)
+    window.output_format.setCurrentIndex(0)
+    assert window.quality.isEnabled()
+
+
+def test_silent_video_cannot_be_downloaded_as_mp3(window):
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': '无音轨视频', 'channel': '作者', 'duration': 13,
+        'heights': [720], 'thumbnail': None, 'has_audio': False, 'has_video': True,
+    }})
+    window.set_busy(False)
+    assert window.download_btn.isEnabled()
+    window.output_format.setCurrentIndex(1)
+    assert not window.download_btn.isEnabled()
+    assert '音轨' in window.status.text()

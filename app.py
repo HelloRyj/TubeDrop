@@ -24,8 +24,8 @@ from version import VERSION
 class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
-        self.setWindowTitle('TubeDrop · YouTube / TikTok 视频下载')
-        self.resize(780, 760)
+        self.setWindowTitle('TubeDrop · YouTube / TikTok / 抖音下载')
+        self.resize(780, 820)
         self.setMinimumSize(680, 600)
         self.settings = settings if settings is not None else QSettings('TubeDrop', 'TubeDrop')
         self.video = None
@@ -57,17 +57,29 @@ class Window(QMainWindow):
         self.cancel_btn.clicked.connect(self.cancel)
         self.folder_btn.clicked.connect(self.choose_folder)
         self.open_btn.clicked.connect(self.open_folder)
+        self.output_format.currentIndexChanged.connect(self.format_changed)
 
     def is_busy(self):
         return self.process is not None
 
     def set_busy(self, busy):
         for widget in (self.url_edit, self.paste_btn, self.identify_btn,
-                       self.folder_btn, self.proxy_edit):
+                       self.folder_btn, self.proxy_edit, self.output_format):
             widget.setEnabled(not busy)
-        self.quality.setEnabled(not busy and self.video is not None)
-        self.download_btn.setEnabled(not busy and self.video is not None)
+        output_format = self.output_format.currentData()
+        capable = self.video is not None and self.video.get(
+            'has_audio' if output_format == 'mp3' else 'has_video', True)
+        self.quality.setEnabled(not busy and capable and output_format == 'mp4')
+        self.download_btn.setEnabled(not busy and capable)
         self.cancel_btn.setEnabled(busy)
+
+    def format_changed(self):
+        self.set_busy(self.is_busy())
+        if self.video:
+            if self.output_format.currentData() == 'mp3' and not self.video.get('has_audio', True):
+                self.show_status('此视频没有可下载的音轨，请选择 MP4。', error=True)
+            else:
+                self.show_status('已选择保存格式，可以开始下载。')
 
     def show_status(self, text, error=False):
         self.status.setText(text)
@@ -181,7 +193,7 @@ class Window(QMainWindow):
                 self.quality.addItem(f'{height}p', height)
             self.progress.setRange(0, 100)
             self.progress.setValue(0)
-            self.show_status('识别完成。选择画质和保存位置，然后开始下载。')
+            self.show_status('识别完成。选择格式和保存位置，然后开始下载。')
             self.load_thumbnail(self.video.get('thumbnail'))
         elif kind == 'progress':
             percent = event.get('percent')
@@ -191,7 +203,8 @@ class Window(QMainWindow):
                 self.progress.setRange(0, 100)
                 self.progress.setValue(int(percent))
             if event.get('phase') == 'processing':
-                self.show_status('正在准备下一段音视频或合并文件，请稍候…')
+                self.show_status('正在生成 MP3 音频，请稍候…' if self.output_format.currentData() == 'mp3'
+                                 else '正在准备下一段音视频或合并文件，请稍候…')
             else:
                 pieces = ['正在下载']
                 if percent is not None:
@@ -260,9 +273,11 @@ class Window(QMainWindow):
         if not folder.is_dir():
             self.show_status('保存目录不存在，请重新选择。', error=True)
             return
-        extra = ['--folder', str(folder)]
-        if height := self.quality.currentData():
-            extra += ['--height', str(height)]
+        output_format = self.output_format.currentData()
+        extra = ['--folder', str(folder), '--output-format', output_format]
+        if output_format == 'mp4':
+            if height := self.quality.currentData():
+                extra += ['--height', str(height)]
         self.start_worker('download', self.identified_url, extra)
         self.show_status('正在准备下载并刷新视频地址…')
 
