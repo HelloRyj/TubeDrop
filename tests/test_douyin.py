@@ -75,5 +75,5 @@ def test_douyin_thumbnail_domains():
 
 def test_douyin_cookie_error_is_actionable():
     message = human_error('Fresh cookies (not necessarily logged in) are needed', '抖音')
-    assert '平台' in message and '限制' in message
+    assert '解析未成功' in message and '接口变化或访问限制' in message
     assert 'Cookie' not in message and '选择' not in message

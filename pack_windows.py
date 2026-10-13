@@ -34,7 +34,7 @@ def prepare_payload(source_root, cache, manifest, runtime_manifest, payload):
     (runtime / 'python314._pth').write_text('python314.zip\n.\nLib/site-packages\n../app\nimport site\n', encoding='utf-8')
     app = payload / 'app'
     app.mkdir(exist_ok=True)
-    for name in ('app.py', 'ui.py', 'core.py', 'worker.py', 'winjob.py',
+    for name in ('app.py', 'ui.py', 'core.py', 'worker.py', 'douyin.py', 'winjob.py',
                  'windows_launcher.py', 'version.py', 'icon.png', 'icon.ico', 'README.md', 'THIRD_PARTY.md'):
         shutil.copy2(source_root / name, app / name)
     binary_dir = payload / 'bin'

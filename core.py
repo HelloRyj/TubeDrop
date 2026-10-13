@@ -157,7 +157,7 @@ def human_error(message: str, platform: str = 'YouTube') -> str:
     clean = re.sub(r'\x1b\[[0-9;]*m', '', str(message))
     lower = clean.lower()
     if 'fresh cookies' in lower:
-        return '抖音平台限制了当前访问，暂时无法下载此视频。可稍后重试或更换链接。'
+        return '抖音解析未成功，可能是接口变化或访问限制。请稍后重试。'
     if any(word in lower for word in ('sign in', 'private video', 'age-restricted', 'members-only')):
         return '此视频要求登录或访问权限，当前版本无法下载。可尝试其他公开视频。'
     if any(word in lower for word in ('timed out', 'timeout', 'network', 'proxy', 'connection', 'resolve')):

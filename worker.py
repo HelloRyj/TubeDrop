@@ -12,6 +12,7 @@ from urllib.parse import urljoin, urlsplit
 
 from core import (available_heights, dependency_options, format_selector, human_error,
                   is_share_short_url, normalize_url, platform_name)
+from douyin import extract_share_video
 
 
 def configure_stdio():
@@ -94,6 +95,18 @@ def video_summary(info: dict) -> dict:
     }
 
 
+def extract_video_info(ydl, url: str, proxy: str = '') -> dict:
+    from yt_dlp.utils import DownloadError
+    try:
+        return ydl.extract_info(url, download=False)
+    except DownloadError:
+        if platform_name(url) != '抖音':
+            raise
+        # 旧详情接口失效时改用公开分享页，继续复用原有下载及格式转换。
+        info = extract_share_video(url, proxy)
+        return ydl.process_ie_result(info, download=False)
+
+
 def base_options(proxy: str = '') -> dict:
     options = {
         'quiet': True, 'no_warnings': False, 'logger': QuietLogger(),
@@ -162,7 +175,7 @@ def run(argv: list[str]) -> int:
         url = resolve_video_url(url, args.proxy)
         if args.action == 'identify':
             with yt_dlp.YoutubeDL(options) as ydl:
-                info = ydl.extract_info(url, download=False)
+                info = extract_video_info(ydl, url, args.proxy)
             summary = video_summary(info)
             summary.update(platform=platform, url=url)
             if not summary['has_video'] and not summary['has_audio']:
@@ -200,7 +213,7 @@ def run(argv: list[str]) -> int:
         options['progress_hooks'] = [progress]
         # 再次解析以刷新临时下载地址；先拒绝直播，再允许写入。
         with yt_dlp.YoutubeDL(options) as ydl:
-            info = ydl.extract_info(url, download=False)
+            info = extract_video_info(ydl, url, args.proxy)
             summary = video_summary(info)
             if args.output_format == 'mp3' and not summary['has_audio']:
                 raise ValueError('此视频没有可下载的音轨，请选择 MP4 或尝试其他视频。')
