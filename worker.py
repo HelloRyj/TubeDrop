@@ -11,7 +11,7 @@ from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
 from core import (available_heights, dependency_options, format_selector, human_error,
-                  is_tiktok_short_url, normalize_url, platform_name)
+                  is_share_short_url, normalize_url, platform_name)
 
 
 def configure_stdio():
@@ -41,8 +41,9 @@ class QuietLogger:
 
 def resolve_video_url(url: str, proxy: str = '', fetch=None) -> str:
     url = normalize_url(url)
-    if not is_tiktok_short_url(url):
+    if not is_share_short_url(url):
         return url
+    platform = platform_name(url)
     if fetch is None:
         from curl_cffi import requests
         def fetch(address):
@@ -60,19 +61,19 @@ def resolve_video_url(url: str, proxy: str = '', fetch=None) -> str:
             response.raise_for_status()
             location = response.headers.get('Location')
             if response.status_code not in {301, 302, 303, 307, 308} or not location:
-                raise ValueError('TikTok 短链接未能跳转到视频，请复制完整视频链接后重试。')
+                raise ValueError(f'{platform} 短链接未能跳转到视频，请复制完整视频链接后重试。')
             try:
                 destination = normalize_url(urljoin(url, location))
             except ValueError:
-                raise ValueError('TikTok 短链接跳转目标无效，请复制完整视频链接后重试。') from None
-            if platform_name(destination) != 'TikTok':
-                raise ValueError('TikTok 短链接跳转到其他网站，已停止识别。')
+                raise ValueError(f'{platform} 短链接跳转目标无效，请复制完整视频链接后重试。') from None
+            if platform_name(destination) != platform:
+                raise ValueError(f'{platform} 短链接跳转到其他网站，已停止识别。')
         finally:
             response.close()
-        if not is_tiktok_short_url(destination):
+        if not is_share_short_url(destination):
             return destination
         url = destination
-    raise ValueError('TikTok 短链接跳转次数过多，请使用完整视频链接。')
+    raise ValueError(f'{platform} 短链接跳转次数过多，请使用完整视频链接。')
 
 
 def video_summary(info: dict) -> dict:
