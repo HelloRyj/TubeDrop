@@ -1,18 +1,18 @@
-# TubeDrop 1.3
+# TubeDrop 1.3.1
 
 简约 iOS 风格的 YouTube / TikTok / 抖音 桌面下载工具。粘贴链接，自动识别视频，选择画质和目录后保存为 MP4 视频或 MP3 音频。视频下载不设置速度上限或人为等待。
 
 ## 安装和使用
 
-**macOS：**双击 `TubeDrop-1.3.0-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
+**macOS：**双击 `TubeDrop-1.3.1-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
 
-**Windows：**双击 `TubeDrop-1.3.0-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
+**Windows：**双击 `TubeDrop-1.3.1-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
 
 **验证边界：**Mac 包已完成测试、签名校验和安装载荷检查。Windows 安装器已在 Mac 上跨平台编译，运行组件使用官方 Windows 发行包且逐文件校验；当前没有 Windows 电脑，尚未完成 Windows 上的实际启动、下载和卸载验证。Windows 包应先在目标电脑试用。安装包尚未进行 Apple 公证或商业代码签名，外部分发可能出现系统发布者提示。
 
 使用流程：粘贴 YouTube / youtu.be / Shorts / TikTok / 抖音链接 → 自动识别 → 选择 MP4 / MP3、画质和保存位置 → 开始下载。下载完成后点击“打开保存目录”。取消后可能保留未完成的临时文件；重新下载不会覆盖已有视频。
 
-无法连接视频平台时，可输入自己的 HTTP 或 SOCKS5 代理地址，例如 `http://127.0.0.1:7890`。代理不保存。需要访问权限或人机验证的视频可能无法下载；平台要求 Cookie 时可主动选择自己的访问验证文件。当前版本不支持直播、播放列表、TikTok / 抖音图集或个人主页批量下载，也不会读取浏览器登录信息。
+无法连接视频平台时，可输入自己的 HTTP 或 SOCKS5 代理地址，例如 `http://127.0.0.1:7890`。代理不保存。需要访问权限或人机验证的视频可能无法下载；当前版本不支持直播、播放列表、TikTok / 抖音图集或个人主页批量下载，也不会读取浏览器登录信息。
 
 ## TikTok 链接
 
@@ -26,7 +26,7 @@ TikTok 可能拒绝部分地区或 IP。已实测一条公开 TikTok 视频的�
 
 三个平台都可选择 **MP4 视频** 或 **MP3 音频 · 192 kbps**。MP4 可选画质；MP3 通过 FFmpeg 转换，画质选择自动禁用。TikTok / 抖音优先提取原视频的声音，避免保存成单独的背景音乐。原视频无音轨时，MP3 会提示不可用；转换不会提高原音频的音质。
 
-抖音在部分网络会要求新的 Cookie（未必需要登录）。当前公开样例返回了该限制，尚未验证带有效 Cookie 的真实抖音下载。此时可点“选择 Cookie 文件”，选择自己导出的 UTF-8 Netscape Cookie 文件，然后重新识别；格式要求见 [yt-dlp 官方说明](https://github.com/yt-dlp/yt-dlp/wiki/FAQ#how-do-i-pass-cookies-to-yt-dlp)。只加载当前平台域名到本次工作进程内存，不修改原文件、保存凭据或读取浏览器。文件不能保证绕过地区、账号权限或平台验证限制。
+应用直接尝试解析和下载公开视频，界面不提供访问验证、登录或 Cookie 导入。抖音可能在平台端限制部分视频或网络；遇到限制会显示失败原因，可稍后重试或更换公开视频链接。移除工具中的验证入口不能消除平台本身的限制。
 
 ## 技术和源码运行
 

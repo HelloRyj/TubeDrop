@@ -152,17 +152,6 @@ def build_window(window):
     proxy_row.addWidget(window.proxy_edit, 1)
     save_card.addLayout(proxy_row)
 
-    cookie_row = QHBoxLayout()
-    window.cookie_label = label('访问验证（可选）', 'muted')
-    window.cookie_label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
-    window.cookie_btn = QPushButton('选择 Cookie 文件')
-    window.cookie_btn.setToolTip('平台要求访问验证时，选择自己导出的 Netscape Cookie 文件；仅本次使用。')
-    window.cookie_clear_btn = QPushButton('清除')
-    cookie_row.addWidget(window.cookie_label, 1)
-    cookie_row.addWidget(window.cookie_btn)
-    cookie_row.addWidget(window.cookie_clear_btn)
-    save_card.addLayout(cookie_row)
-
     window.progress = QProgressBar()
     window.progress.setTextVisible(False)
     window.progress.setFixedHeight(6)

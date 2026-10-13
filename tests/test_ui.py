@@ -151,17 +151,12 @@ def test_silent_video_cannot_be_downloaded_as_mp3(window):
     assert '音轨' in window.status.text()
 
 
-def test_cookie_selection_is_optional_transient_and_locked_while_busy(window, tmp_path, monkeypatch):
-    from PySide6.QtWidgets import QFileDialog
-    filename = str(tmp_path / 'cookies.txt')
-    monkeypatch.setattr(QFileDialog, 'getOpenFileName', lambda *args: (filename, ''))
-    window.choose_cookies()
-    assert window.cookies_path == filename
-    assert window.cookie_label.text() == 'cookies.txt'
-    assert not window.settings.contains('cookies')
+def test_window_has_no_access_validation_controls(window):
+    from PySide6.QtWidgets import QPushButton, QLabel
+    texts = [widget.text() for widget in window.findChildren(QPushButton) + window.findChildren(QLabel)]
+    assert not any('Cookie' in text or '访问验证' in text for text in texts)
+    assert not hasattr(window, 'cookies_path')
     window.set_busy(True)
-    assert not window.cookie_btn.isEnabled()
-    assert not window.cookie_clear_btn.isEnabled()
+    assert not window.output_format.isEnabled()
     window.set_busy(False)
-    window.clear_cookies()
-    assert window.cookies_path == ''
+    assert window.output_format.isEnabled()
