@@ -37,7 +37,7 @@ def normalize_url(raw: str) -> str:
         if host == 'v.douyin.com' and re.fullmatch(r'/[A-Za-z0-9_-]{5,100}', path):
             return f'https://v.douyin.com{path}/'
         if host in DOUYIN_HOSTS:
-            match = re.fullmatch(r'/(?:video|share/video)/([0-9]{10,25})', path)
+            match = re.fullmatch(r'/(?:share/)?(?:video|note)/([0-9]{10,25})', path)
             if match:
                 video_id = match[1]
             elif path in {'', '/discover'} or re.fullmatch(r'/user/[A-Za-z0-9_-]+', path):
@@ -47,7 +47,8 @@ def normalize_url(raw: str) -> str:
                 video_id = ''
             if not re.fullmatch(r'[0-9]{10,25}', video_id):
                 raise ValueError
-            return f'https://www.douyin.com/video/{video_id}'
+            kind = 'note' if '/note/' in path else 'video'
+            return f'https://www.douyin.com/{kind}/{video_id}'
         if host in TIKTOK_SHORT_HOSTS and re.fullmatch(r'/[A-Za-z0-9_]{5,100}', path):
             return f'https://{host}{path}/'
         if host in TIKTOK_HOSTS:

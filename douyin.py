@@ -12,6 +12,8 @@ MOBILE_UA = ('Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) '
              'Mobile/15E148 Safari/604.1')
 MAX_PAGE_BYTES = 2 * 1024 * 1024
 MEDIA_HOSTS = ('snssdk.com', 'douyinvod.com', 'douyincdn.com', 'bytecdn.cn', 'ibytedtos.com')
+IMAGE_HOSTS = ('douyinpic.com', 'douyincdn.com', 'byteimg.com', 'ibytedtos.com')
+AUDIO_HOSTS = (*MEDIA_HOSTS, 'douyinstatic.com', 'bytefcdnrd.com')
 
 
 def original_playback_url(url: str) -> str:
@@ -27,7 +29,7 @@ def original_playback_url(url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, '/aweme/v1/play/', urlencode(query), ''))
 
 
-def media_url_allowed(url):
+def media_url_allowed(url, domains=MEDIA_HOSTS):
     if not isinstance(url, str):
         return False
     try:
@@ -35,9 +37,47 @@ def media_url_allowed(url):
         host = parts.hostname or ''
         return (parts.scheme == 'https' and not parts.username and not parts.password
                 and parts.port in {None, 443}
-                and any(host == domain or host.endswith('.' + domain) for domain in MEDIA_HOSTS))
+                and any(host == domain or host.endswith('.' + domain) for domain in domains))
     except ValueError:
         return False
+
+
+def gallery_info(item: dict, video_id: str) -> dict | None:
+    nested = item.get('image_post_info') or {}
+    images = (nested.get('images') or nested.get('image_list') or item.get('images')
+              or item.get('image_list') or item.get('image_infos') or item.get('original_images'))
+    if not images:
+        if item.get('aweme_type') in {2, 68, 150}:
+            raise ValueError('图集未返回可用原图。')
+        return None
+    if not isinstance(images, list) or len(images) > 200:
+        raise ValueError('图集数据异常。')
+    photos = []
+    for image in images:
+        # 下载专用图片可能附加水印；缺少原图时不回退，也不静默漏图。
+        urls = []
+        for source in (image.get('origin_image'), image.get('original_image'),
+                       image.get('display_image'), image):
+            if isinstance(source, dict) and not source.get('has_watermark'):
+                urls.extend(url for url in source.get('url_list') or []
+                            if media_url_allowed(url, IMAGE_HOSTS)
+                            and not re.search(r'watermark|watermarked', url, re.I))
+        if not urls:
+            raise ValueError(f'第 {len(photos) + 1} 张图片没有可用无水印来源。')
+        photos.append({'urls': list(dict.fromkeys(urls))})
+    music = item.get('music') or {}
+    audio_urls = (music.get('play_url') or {}).get('url_list') or []
+    return {
+        'id': video_id, 'title': item.get('desc') or f'抖音图集 {video_id}',
+        'uploader': (item.get('author') or {}).get('nickname'),
+        'extractor': 'douyin', 'extractor_key': 'Douyin', 'media_type': 'images',
+        'images': photos, 'thumbnail': photos[0]['urls'][0],
+        'webpage_url': f'https://www.douyin.com/note/{video_id}',
+        'http_headers': {'User-Agent': MOBILE_UA, 'Referer': 'https://www.douyin.com/'},
+        'formats': [{'format_id': f'music-{i}', 'url': url, 'vcodec': 'none',
+                     'acodec': 'unknown', 'format_note': '图集配乐'}
+                    for i, url in enumerate(audio_urls) if media_url_allowed(url, AUDIO_HOSTS)],
+    }
 
 
 def parse_share_page(html: str, video_id: str) -> dict:
@@ -51,8 +91,9 @@ def parse_share_page(html: str, video_id: str) -> dict:
         item = next(item for page in pages if isinstance(page, dict)
                     for item in (page.get('videoInfoRes') or {}).get('item_list', [])
                     if isinstance(item, dict) and str(item.get('aweme_id')) == video_id)
-        if item.get('images') or item.get('image_infos'):
-            raise ValueError('此作品是图集，当前下载入口仅支持视频。')
+        gallery = gallery_info(item, video_id)
+        if gallery:
+            return gallery
         video = item['video']
         urls = (video.get('play_addr') or {}).get('url_list') or []
         urls = list(dict.fromkeys(original_playback_url(url) for url in urls if media_url_allowed(url)))
@@ -78,7 +119,7 @@ def parse_share_page(html: str, video_id: str) -> dict:
 
 def extract_share_video(url: str, proxy: str = '', *, session=None) -> dict:
     url = normalize_url(url)
-    if platform_name(url) != '抖音' or '/video/' not in url:
+    if platform_name(url) != '抖音':
         raise ValueError('请使用抖音完整视频链接。')
     video_id = urlsplit(url).path.rsplit('/', 1)[-1]
     if session is None:

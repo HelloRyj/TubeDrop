@@ -21,7 +21,6 @@ def test_douyin_video_links_are_canonical(raw):
 @pytest.mark.parametrize('raw', [
     'https://douyin.com.evil.org/video/6961737553342991651',
     'https://www.douyin.com/user/creator',
-    'https://www.douyin.com/note/6961737553342991651',
     'https://live.douyin.com/12345',
     'https://v.douyin.com/abc/extra',
     'https://user:pass@v.douyin.com/ABc1234/',

@@ -92,6 +92,8 @@ def video_summary(info: dict) -> dict:
         'heights': available_heights(formats),
         'has_video': any(f.get('vcodec') not in {None, 'none'} for f in formats),
         'has_audio': any(f.get('acodec') not in {None, 'none'} for f in formats),
+        'media_type': info.get('media_type', 'video'),
+        'image_count': len(info.get('images') or []),
         'platform': '抖音' if extractor == 'douyin' else 'TikTok' if extractor.startswith('tiktok') else 'YouTube',
     }
 
@@ -127,6 +129,8 @@ def original_video_formats(info: dict, platform: str) -> dict:
 def extract_video_info(ydl, url: str, proxy: str = '') -> dict:
     from yt_dlp.utils import DownloadError
     platform = platform_name(url)
+    if platform == '抖音' and '/note/' in url:
+        return extract_share_video(url, proxy)
     try:
         raw = ydl.extract_info(url, download=False, process=False)
         info = original_video_formats(raw, platform)
@@ -134,7 +138,10 @@ def extract_video_info(ydl, url: str, proxy: str = '') -> dict:
         if platform != '抖音':
             raise
         # 旧详情接口失效时改用公开分享页，继续复用原有下载及格式转换。
-        info = original_video_formats(extract_share_video(url, proxy), platform)
+        raw = extract_share_video(url, proxy)
+        if raw.get('media_type') == 'images':
+            return raw
+        info = original_video_formats(raw, platform)
     return ydl.process_ie_result(info, download=False)
 
 
@@ -209,7 +216,7 @@ def run(argv: list[str]) -> int:
                 info = extract_video_info(ydl, url, args.proxy)
             summary = video_summary(info)
             summary.update(platform=platform, url=url)
-            if not summary['has_video'] and not summary['has_audio']:
+            if not summary['has_video'] and not summary['has_audio'] and not summary['image_count']:
                 raise ValueError('未找到可下载的音视频，请稍后重试。')
             emit('metadata', video=summary)
             return 0
