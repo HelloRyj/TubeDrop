@@ -122,6 +122,7 @@ def extract_share_video(url: str, proxy: str = '', *, session=None) -> dict:
     if platform_name(url) != '抖音':
         raise ValueError('请使用抖音完整视频链接。')
     video_id = urlsplit(url).path.rsplit('/', 1)[-1]
+    kind = 'note' if '/note/' in url else 'video'
     if session is None:
         from curl_cffi import requests
         with requests.Session(impersonate='safari_ios', headers={'User-Agent': MOBILE_UA}) as guest:
@@ -132,7 +133,7 @@ def extract_share_video(url: str, proxy: str = '', *, session=None) -> dict:
         for _ in range(2):
             response = None
             try:
-                response = session.get(f'https://{host}/share/video/{video_id}/',
+                response = session.get(f'https://{host}/share/{kind}/{video_id}/',
                                        proxy=proxy or None, timeout=20, stream=True,
                                        allow_redirects=False)
                 if response.status_code != 200:
@@ -142,7 +143,14 @@ def extract_share_video(url: str, proxy: str = '', *, session=None) -> dict:
                     body.extend(chunk)
                     if len(body) > MAX_PAGE_BYTES:
                         raise ValueError('分享页数据过大。')
-                return parse_share_page(body.decode('utf-8', errors='replace'), video_id)
+                html = body.decode('utf-8', errors='replace')
+                try:
+                    return parse_share_page(html, video_id)
+                except ValueError:
+                    # video/modal_id 链接可能实际指向 note 作品，尝试另一公开路由。
+                    if 'window._ROUTER_DATA' in html:
+                        kind = 'note' if kind == 'video' else 'video'
+                    raise
             except (ValueError, RequestException):
                 continue
             finally:

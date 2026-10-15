@@ -14,6 +14,11 @@ from urllib.parse import urljoin, urlsplit
 from core import (available_heights, dependency_options, format_selector, human_error,
                   is_share_short_url, normalize_url, platform_name)
 from douyin import extract_share_video
+from images import IMAGE_FORMATS, download_gallery
+
+
+def lossless_codec(codec: str | None) -> bool:
+    return bool(codec and (codec in {'flac', 'alac'} or re.fullmatch(r'pcm_[su](?:8|16|24|32)(?:le|be)?', codec)))
 
 
 def configure_stdio():
@@ -85,15 +90,23 @@ def video_summary(info: dict) -> dict:
         raise ValueError('当前版本支持已发布的视频，暂不支持直播或预告。')
     formats = info.get('formats') or []
     extractor = str(info.get('extractor_key') or '').lower()
+    audio_formats = [f for f in formats if f.get('acodec') not in {None, 'none'}]
+    if extractor in {'douyin', 'tiktok'} and info.get('media_type') != 'images':
+        audio_formats = [f for f in audio_formats if f.get('vcodec') not in {None, 'none'}]
+    audio_quality = ('lossless' if any(lossless_codec(f.get('acodec')) for f in audio_formats)
+                     else 'lossy' if audio_formats and all(str(f.get('acodec')).startswith(
+                         ('aac', 'mp4a', 'mp3', 'opus', 'vorbis')) for f in audio_formats)
+                     else 'unknown')
     return {
         'id': info.get('id'), 'title': info.get('title') or '未命名视频',
         'channel': info.get('uploader') or info.get('channel') or '未知频道',
         'duration': info.get('duration'), 'thumbnail': info.get('thumbnail'),
         'heights': available_heights(formats),
         'has_video': any(f.get('vcodec') not in {None, 'none'} for f in formats),
-        'has_audio': any(f.get('acodec') not in {None, 'none'} for f in formats),
+        'has_audio': bool(audio_formats),
         'media_type': info.get('media_type', 'video'),
         'image_count': len(info.get('images') or []),
+        'audio_quality': audio_quality,
         'platform': '抖音' if extractor == 'douyin' else 'TikTok' if extractor.startswith('tiktok') else 'YouTube',
     }
 
@@ -162,19 +175,29 @@ def base_options(proxy: str = '') -> dict:
 
 def download_options(folder: Path, height: int | None, output_format: str = 'mp4',
                      platform: str = 'YouTube') -> dict:
-    if output_format not in {'mp4', 'mp3'}:
-        raise ValueError('请选择 MP4 视频或 MP3 音频格式。')
+    if output_format not in {'mp4', 'mp3', 'flac'}:
+        raise ValueError('请选择 MP4 视频、MP3 或 FLAC 音频格式。')
     token = uuid.uuid4().hex[:8]
     options = {
         'noplaylist': True,
         'outtmpl': str(folder / f'%(title).160B [%(id)s]-{token}.%(ext)s'),
         'overwrites': False, 'windowsfilenames': True,
     }
-    if output_format == 'mp3':
+    if output_format in {'mp3', 'flac'}:
         # 短视频平台的独立音频可能只是配乐，优先提取完整视频的声音。
-        options.update(format='ba/b[acodec!=none]' if platform == 'YouTube' else 'b[acodec!=none]/ba',
-                       postprocessors=[{'key': 'FFmpegExtractAudio', 'preferredcodec': 'mp3',
-                                        'preferredquality': '192'}])
+        selector = 'ba/b[acodec!=none]' if platform == 'YouTube' else 'b[acodec!=none][vcodec!=none]'
+        if output_format == 'flac':
+            bases = ['ba', 'b'] if platform == 'YouTube' else ['b[vcodec!=none]']
+            lossless = [f'{base}[acodec{op}{codec}]' for op, codec in (
+                ('=', 'flac'), ('=', 'alac'), ('^=', 'pcm_s'), ('^=', 'pcm_u'))
+                for base in bases]
+            selector = '/'.join([*lossless, selector])
+            # 捆绑 FFmpeg 的 32 位 FLAC 需要此选项，避免 PCM32 静默降为 24 位。
+            options['postprocessor_args'] = {'extractaudio+ffmpeg_o': ['-strict', 'experimental']}
+        processor = {'key': 'FFmpegExtractAudio', 'preferredcodec': output_format}
+        if output_format == 'mp3':
+            processor['preferredquality'] = '192'
+        options.update(format=selector, postprocessors=[processor])
     else:
         options.update(format=format_selector(height), merge_output_format='mp4',
                        postprocessors=[{'key': 'FFmpegVideoRemuxer', 'preferedformat': 'mp4'}])
@@ -199,7 +222,7 @@ def run(argv: list[str]) -> int:
     parser.add_argument('url')
     parser.add_argument('--folder', default='')
     parser.add_argument('--height', type=int)
-    parser.add_argument('--output-format', choices=['mp4', 'mp3'], default='mp4')
+    parser.add_argument('--output-format', choices=['mp4', 'mp3', 'flac', *sorted(IMAGE_FORMATS)], default='mp4')
     parser.add_argument('--proxy', default='')
     args = parser.parse_args(argv)
     platform = '视频平台'
@@ -224,7 +247,8 @@ def run(argv: list[str]) -> int:
         folder = Path(args.folder).expanduser().resolve()
         if not args.folder or not folder.is_dir():
             raise ValueError('请选择存在的保存目录。')
-        options.update(download_options(folder, args.height, args.output_format, platform))
+        if args.output_format not in IMAGE_FORMATS:
+            options.update(download_options(folder, args.height, args.output_format, platform))
         last_update = 0.0
 
         def progress(data):
@@ -253,7 +277,20 @@ def run(argv: list[str]) -> int:
         with yt_dlp.YoutubeDL(options) as ydl:
             info = extract_video_info(ydl, url, args.proxy)
             summary = video_summary(info)
-            if args.output_format == 'mp3' and not summary['has_audio']:
+            if args.output_format in IMAGE_FORMATS:
+                if not summary['image_count']:
+                    raise ValueError('此作品不是图集，请选择视频或音频格式。')
+                result = download_gallery(info, folder, args.output_format, args.proxy, emit)
+                emit('complete', **result)
+                return 0
+            if summary['image_count'] and args.output_format == 'mp4':
+                raise ValueError('此作品是图集，请选择图片格式或可用的配乐格式。')
+            if summary['image_count']:
+                # 图集的音频明确是配乐，允许使用其独立音频流。
+                ydl.params['format'] = download_options(folder, None, args.output_format, 'YouTube')['format']
+                ydl.format_selector = ydl.build_format_selector(ydl.params['format'])
+                info = ydl.process_ie_result(info, download=False)
+            if args.output_format in {'mp3', 'flac'} and not summary['has_audio']:
                 raise ValueError('此视频没有可下载的音轨，请选择 MP4 或尝试其他视频。')
             if args.output_format == 'mp4' and not summary['has_video']:
                 raise ValueError('此链接仅有音频，请选择 MP3。')
@@ -262,7 +299,8 @@ def run(argv: list[str]) -> int:
         if not final_paths or not all(p.is_file() and p.stat().st_size > 0 and p.is_relative_to(folder)
                                       and p.suffix.lower() == '.' + args.output_format for p in final_paths):
             raise RuntimeError('下载未生成完整文件，请重试。')
-        emit('complete', path=str(final_paths[-1]), output_format=args.output_format)
+        emit('complete', path=str(final_paths[-1]), output_format=args.output_format,
+             source_lossless=lossless_codec(info.get('acodec')))
         return 0
     except Exception as error:
         emit('error', message=human_error(str(error), platform))

@@ -18,7 +18,7 @@ from worker import run
     ('https://www.tiktok.com/@creator/video/6748451240264420610', '6748451240264420610', 'TikTok'),
     ('https://www.douyin.com/video/6961737553342991651', '6961737553342991651', 'Douyin'),
 ])
-@pytest.mark.parametrize('output_format', ['mp4', 'mp3'])
+@pytest.mark.parametrize('output_format', ['mp4', 'mp3', 'flac'])
 def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, video_id, extractor, output_format):
     media = tmp_path / 'media'
     media.mkdir()
@@ -87,9 +87,73 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
         assert 'Video:' in probe.stderr
     else:
         assert 'Video:' not in probe.stderr
-        assert 'Audio: mp3' in probe.stderr
+        assert 'Audio: ' + output_format in probe.stderr
         import re
         seconds = float(re.search(r'Duration: 00:00:([0-9.]+)', probe.stderr)[1])
         assert seconds < 1, 'MP3 应保存原视频声音，不能下载更长的独立背景音乐'
     assert subprocess.run([ffmpeg, '-v', 'error', '-i', str(final), '-f', 'null', '-'],
                           capture_output=True).returncode == 0
+
+
+@pytest.mark.parametrize('bits', [24, 32])
+def test_flac_preserves_lossless_pcm_samples(tmp_path, monkeypatch, capsys, bits):
+    from pathlib import Path
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    source = tmp_path / 'original.wav'
+    subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i',
+                    'aevalsrc=0.234567*sin(2*PI*440*t):s=48000:d=0.2',
+                    '-c:a', f'pcm_s{bits}le', str(source)], check=True)
+    destination = tmp_path / 'saved'; destination.mkdir()
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, *_): pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(QuietHandler, directory=str(tmp_path)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+    info = {'id': 'BaW_jenozKc', 'title': 'Lossless', 'extractor': 'youtube', 'extractor_key': 'Youtube',
+            'formats': [{'format_id': 'pcm', 'url': f'http://127.0.0.1:{server.server_port}/original.wav',
+                         'ext': 'wav', 'acodec': f'pcm_s{bits}le', 'vcodec': 'none'}]}
+    monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', lambda *a, **k: info)
+    monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    try:
+        assert run(['download', 'https://youtu.be/BaW_jenozKc', '--folder', str(destination), '--output-format', 'flac']) == 0
+    finally:
+        server.shutdown(); server.server_close(); thread.join()
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert events[-1]['source_lossless']
+    output = Path(events[-1]['path'])
+    def pcm(path):
+        return subprocess.run([ffmpeg, '-v', 'error', '-i', str(path), '-c:a', 'pcm_s32le',
+                               '-f', 's32le', '-'], check=True, capture_output=True).stdout
+    original = pcm(source)
+    assert original == pcm(output)
+    assert any(original[i + 1] for i in range(0, len(original), 4)), '样例确实包含超过 16 位的有效音频数据'
+
+
+@pytest.mark.parametrize('fmt', ['mp3', 'flac'])
+def test_gallery_music_uses_audio_formats(tmp_path, monkeypatch, capsys, fmt):
+    import worker
+    from pathlib import Path
+    ffmpeg = imageio_ffmpeg.get_ffmpeg_exe()
+    source = tmp_path / 'music.flac'
+    subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i', 'sine=d=0.2', str(source)], check=True)
+    destination = tmp_path / 'saved'; destination.mkdir()
+    class QuietHandler(SimpleHTTPRequestHandler):
+        def log_message(self, *_): pass
+    server = ThreadingHTTPServer(('127.0.0.1', 0), functools.partial(QuietHandler, directory=str(tmp_path)))
+    thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+    info = {'id': '7696358352017148859', 'title': '配乐', 'extractor': 'douyin', 'extractor_key': 'Douyin',
+            'media_type': 'images', 'images': [{'urls': ['https://p3.douyinpic.com/photo.jpg']}],
+            'formats': [{'format_id': 'music', 'url': f'http://127.0.0.1:{server.server_port}/music.flac',
+                         'ext': 'flac', 'acodec': 'flac', 'vcodec': 'none'}]}
+    monkeypatch.setattr(worker, 'extract_share_video', lambda *a, **k: info)
+    monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    try:
+        code = run(['download', 'https://www.douyin.com/note/7696358352017148859',
+                    '--folder', str(destination), '--output-format', fmt])
+    finally:
+        server.shutdown(); server.server_close(); thread.join()
+    events = [json.loads(line) for line in capsys.readouterr().out.splitlines()]
+    assert code == 0, events
+    final = Path(events[-1]['path'])
+    assert final.suffix == '.' + fmt
+    if fmt == 'flac':
+        assert final.read_bytes() == source.read_bytes(), 'FLAC 原文件应直接保留，不二次编码'

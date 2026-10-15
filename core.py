@@ -18,12 +18,12 @@ DOUYIN_HOSTS = {'douyin.com', 'www.douyin.com', 'iesdouyin.com', 'www.iesdouyin.
 def normalize_url(raw: str) -> str:
     raw = raw.strip()
     if not raw or len(raw) > 4096 or any(ord(c) < 32 and c not in '\r\n\t' for c in raw):
-        raise ValueError('请粘贴有效的 YouTube、TikTok 或抖音视频链接。')
+        raise ValueError('请粘贴有效的 YouTube、TikTok 或抖音作品链接。')
     if any(c.isspace() for c in raw):
         # 抖音复制的分享文案常带标题；只接受其中唯一的一条链接。
         links = re.findall(r'https?://[^\s<>"“”]+', raw)
         if len(links) != 1:
-            raise ValueError('请一次粘贴一个视频链接。')
+            raise ValueError('请一次粘贴一个作品链接。')
         raw = links[0].rstrip('，。；、！）')
     if '://' not in raw:
         raw = 'https://' + raw
@@ -74,7 +74,7 @@ def normalize_url(raw: str) -> str:
         if not VIDEO_ID.fullmatch(video_id):
             raise ValueError
     except ValueError:
-        raise ValueError('请使用 YouTube、TikTok 或抖音单个视频链接，支持分享短链接。') from None
+        raise ValueError('请使用 YouTube、TikTok 或抖音单个作品链接，支持分享短链接。') from None
     # 仅传递视频 ID，去除播放列表、跳转参数和分享追踪信息。
     return f'https://www.youtube.com/watch?v={video_id}'
 

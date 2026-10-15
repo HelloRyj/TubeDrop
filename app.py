@@ -18,6 +18,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog, QMainWindow
 
 from core import duration_label, normalize_url, platform_name, thumbnail_url_allowed
 from ui import build_window
+from images import IMAGE_FORMATS
 from version import VERSION
 
 
@@ -67,19 +68,58 @@ class Window(QMainWindow):
                        self.folder_btn, self.proxy_edit, self.output_format):
             widget.setEnabled(not busy)
         output_format = self.output_format.currentData()
-        capable = self.video is not None and self.video.get(
-            'has_audio' if output_format == 'mp3' else 'has_video', True)
+        capability = ('image_count' if output_format in IMAGE_FORMATS else
+                      'has_audio' if output_format in {'mp3', 'flac'} else 'has_video')
+        capable = self.video is not None and self.video.get(capability, capability != 'image_count')
         self.quality.setEnabled(not busy and capable and output_format == 'mp4')
         self.download_btn.setEnabled(not busy and capable)
         self.cancel_btn.setEnabled(busy)
 
     def format_changed(self):
         self.set_busy(self.is_busy())
+        self.update_format_hint()
         if self.video:
-            if self.output_format.currentData() == 'mp3' and not self.video.get('has_audio', True):
-                self.show_status('此视频没有可下载的音轨，请选择 MP4。', error=True)
+            if self.output_format.currentData() in {'mp3', 'flac'} and not self.video.get('has_audio', True):
+                self.show_status('此作品没有可下载的音轨，请选择视频或图片。', error=True)
             else:
                 self.show_status('已选择保存格式，可以开始下载。')
+
+    def configure_formats(self):
+        previous = self.output_format.currentData()
+        gallery = bool(self.video and self.video.get('image_count'))
+        formats = ([('原格式图片 · 不重编码', 'original'), ('JPG 图片', 'jpg'),
+                    ('PNG 图片 · 无损编码', 'png'), ('WebP 图片 · 无损编码', 'webp')]
+                   if gallery else [('MP4 视频', 'mp4')])
+        if not gallery or self.video.get('has_audio'):
+            formats += [('MP3 音频 · 192 kbps', 'mp3'), ('FLAC 音频 · 无损编码', 'flac')]
+        self.output_format.blockSignals(True)
+        self.output_format.clear()
+        for text, value in formats:
+            self.output_format.addItem(text, value)
+        self.output_format.setCurrentIndex(max(0, self.output_format.findData(previous)))
+        self.output_format.blockSignals(False)
+        self.update_format_hint()
+
+    def update_format_hint(self):
+        fmt = self.output_format.currentData()
+        info = self.video or {}
+        if fmt == 'flac':
+            quality = info.get('audio_quality', 'unknown')
+            text = {'lossless': '已发现无损音轨，将优先使用。',
+                    'lossy': '源音频为有损；保存为 FLAC 不会提升音质。',
+                    'unknown': '源音质尚未确认；FLAC 不会恢复原先丢失的音质。'}[quality]
+        elif fmt == 'mp3':
+            text = 'MP3 为有损格式，保存为 192 kbps。'
+        elif fmt in IMAGE_FORMATS:
+            text = ('保留平台原图文件，不重编码。' if fmt == 'original' else
+                    'JPG 为高质量有损转换；透明区域使用白色背景。' if fmt == 'jpg' else
+                    '无损编码，保留图片尺寸；不会提高原图清晰度。')
+            text += ' 不使用平台水印下载图；画面自带标识会保留。'
+        else:
+            text = '优先无水印源；部分视频仍可能带水印。'
+        if info.get('image_count') and fmt in {'mp3', 'flac'}:
+            text = '保存图集配乐。' + text
+        self.format_hint.setText(text)
 
     def show_status(self, text, error=False):
         self.status.setText(text)
@@ -89,6 +129,7 @@ class Window(QMainWindow):
     def url_changed(self):
         self.auto_timer.stop()
         self.video = None
+        self.configure_formats()
         self.identified_url = ''
         self.request_generation += 1
         self.download_btn.setEnabled(False)
@@ -98,10 +139,10 @@ class Window(QMainWindow):
         self.thumbnail.clear()
         self.thumbnail.setText('▶')
         self.video_title.setText('等待识别')
-        self.video_detail.setText('视频信息将在这里显示。')
+        self.video_detail.setText('作品信息将在这里显示。')
         self.progress.setRange(0, 100)
         self.progress.setValue(0)
-        self.show_status('准备就绪，先粘贴一个视频链接。')
+        self.show_status('准备就绪，先粘贴一个作品链接。')
         self.auto_timer.start()
 
     def auto_identify(self):
@@ -127,11 +168,11 @@ class Window(QMainWindow):
             return
         self.video = None
         self.identified_url = url
-        self.video_title.setText('正在识别视频…')
+        self.video_title.setText('正在识别作品…')
         self.video_detail.setText('正在获取标题和可用画质，请稍候。')
         self.start_worker('identify', url)
         self.timeout_timer.start(90000)
-        self.show_status(f'正在连接 {platform_name(url)} 并识别视频…')
+        self.show_status(f'正在连接 {platform_name(url)} 并识别作品…')
 
     def worker_command(self, action, url):
         if getattr(sys, 'frozen', False):
@@ -185,10 +226,13 @@ class Window(QMainWindow):
             self.video = event['video']
             self.identified_url = self.video.get('url') or self.identified_url
             self.video_title.setText(self.video['title'])
-            details = [self.video.get('platform'), self.video['channel'], duration_label(self.video['duration'])]
+            count = self.video.get('image_count', 0)
+            details = [self.video.get('platform'), self.video['channel'],
+                       f'{count} 张图片' if count else duration_label(self.video['duration'])]
             self.video_detail.setText('  ·  '.join(item for item in details if item))
+            self.configure_formats()
             self.quality.clear()
-            self.quality.addItem('最高可用画质', None)
+            self.quality.addItem('保留原图尺寸' if count else '最高可用画质', None)
             for height in self.video['heights']:
                 self.quality.addItem(f'{height}p', height)
             self.progress.setRange(0, 100)
@@ -202,8 +246,11 @@ class Window(QMainWindow):
             else:
                 self.progress.setRange(0, 100)
                 self.progress.setValue(int(percent))
-            if event.get('phase') == 'processing':
-                self.show_status('正在生成 MP3 音频，请稍候…' if self.output_format.currentData() == 'mp3'
+            if event.get('phase') == 'images':
+                self.show_status(f"正在保存图片 {event['image_index']} / {event['image_count']}…")
+            elif event.get('phase') == 'processing':
+                self.show_status(f'正在生成 {self.output_format.currentData().upper()} 音频，请稍候…'
+                                 if self.output_format.currentData() in {'mp3', 'flac'}
                                  else '正在准备下一段音视频或合并文件，请稍候…')
             else:
                 pieces = ['正在下载']
@@ -216,20 +263,28 @@ class Window(QMainWindow):
                 self.show_status('  ·  '.join(pieces))
         elif kind == 'complete':
             path = Path(event['path'])
-            if path.is_file():
+            gallery = event.get('media_type') == 'images'
+            paths = [Path(p) for p in event.get('paths', [])]
+            complete = (path.is_dir() and len(paths) == event.get('image_count') and bool(paths)
+                        and all(p.is_file() and p.stat().st_size > 0 and
+                                p.resolve().parent == path.resolve() for p in paths)) if gallery else path.is_file()
+            if complete:
                 self.terminal_event = True
                 self.progress.setRange(0, 100)
                 self.progress.setValue(100)
-                self.show_status(f'下载完成：{path.name}')
+                text = f'下载完成：{len(paths)} 张图片' if gallery else f'下载完成：{path.name}'
+                if event.get('output_format') == 'flac' and not event.get('source_lossless'):
+                    text += '（源音频并非已确认无损，转换不会提升音质）'
+                self.show_status(text)
             else:
-                self.handle_event({'type': 'error', 'message': '下载文件不存在，请重试。'})
+                self.handle_event({'type': 'error', 'message': '图集不完整，请重试。' if gallery else '下载文件不存在，请重试。'})
         elif kind == 'error':
             self.terminal_event = True
             self.progress.setRange(0, 100)
             self.show_status(event['message'], error=True)
             if self.video is None:
                 self.video_title.setText('暂时无法识别')
-                self.video_detail.setText('检查链接或网络后，可点击“识别视频”重试。')
+                self.video_detail.setText('检查链接或网络后，可点击“识别作品”重试。')
 
     def load_thumbnail(self, url):
         if self.thumbnail_reply:
@@ -258,7 +313,7 @@ class Window(QMainWindow):
         reply.finished.connect(received)
 
     def choose_folder(self):
-        folder = QFileDialog.getExistingDirectory(self, '选择视频保存目录', self.folder_edit.text())
+        folder = QFileDialog.getExistingDirectory(self, '选择保存目录', self.folder_edit.text())
         if folder:
             self.folder_edit.setText(folder)
             self.settings.setValue('folder', folder)
@@ -336,7 +391,7 @@ class Window(QMainWindow):
                 self.show_status('已取消。未完成的临时文件可能保留在保存目录，可重新开始。')
             if self.video is None:
                 self.video_title.setText('识别已取消')
-                self.video_detail.setText('可重新粘贴链接，或点击“识别视频”。')
+                self.video_detail.setText('可重新粘贴链接，或点击“识别作品”。')
         elif not self.terminal_event:
             self.show_status('下载进程意外结束，请重新尝试。', error=True)
 

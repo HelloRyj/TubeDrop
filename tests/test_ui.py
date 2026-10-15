@@ -160,3 +160,50 @@ def test_window_has_no_access_validation_controls(window):
     assert not window.output_format.isEnabled()
     window.set_busy(False)
     assert window.output_format.isEnabled()
+
+
+def test_gallery_switches_formats_and_completed_directory_is_recognized(window, tmp_path):
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': '咖啡', 'channel': '作者', 'duration': None, 'heights': [],
+        'media_type': 'images', 'image_count': 3, 'has_video': False, 'has_audio': False,
+    }})
+    window.set_busy(False)
+    assert window.output_format.currentData() == 'original'
+    assert {window.output_format.itemData(i) for i in range(window.output_format.count())} == {
+        'original', 'jpg', 'png', 'webp'}
+    assert '3 张图片' in window.video_detail.text()
+    assert window.download_btn.isEnabled() and not window.quality.isEnabled()
+    folder = tmp_path / 'gallery'; folder.mkdir()
+    paths = []
+    for i in range(3):
+        file = folder / f'{i}.png'; file.write_bytes(b'image'); paths.append(str(file))
+    window.handle_event({'type': 'complete', 'path': str(folder), 'paths': paths,
+                         'media_type': 'images', 'image_count': 3})
+    assert '3 张图片' in window.status.text() and window.progress.value() == 100
+    (folder / '1.png').unlink()
+    window.handle_event({'type': 'complete', 'path': str(folder), 'paths': paths,
+                         'media_type': 'images', 'image_count': 3})
+    assert '不完整' in window.status.text()
+
+
+def test_flac_ui_explains_lossy_source_and_disables_video_quality(window):
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': 'Test', 'channel': '作者', 'duration': 10, 'heights': [720],
+        'has_audio': True, 'has_video': True, 'audio_quality': 'lossy',
+    }})
+    window.output_format.setCurrentIndex(window.output_format.findData('flac'))
+    window.set_busy(False)
+    assert not window.quality.isEnabled() and window.download_btn.isEnabled()
+    assert '有损' in window.format_hint.text()
+    assert '不会提升' in window.format_hint.text()
+    window.url_changed()
+    assert not window.download_btn.isEnabled()
+
+
+def test_gallery_music_formats_are_available_only_with_audio(window):
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': 'Test', 'channel': '作者', 'duration': None, 'heights': [],
+        'media_type': 'images', 'image_count': 2, 'has_video': False, 'has_audio': True,
+    }})
+    window.output_format.setCurrentIndex(window.output_format.findData('flac'))
+    assert '配乐' in window.format_hint.text()

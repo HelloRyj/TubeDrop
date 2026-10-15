@@ -66,3 +66,13 @@ def test_gallery_worker_identification_without_video_formats(monkeypatch, capsys
     assert summary['media_type'] == 'images'
     assert summary['image_count'] == 1
     assert not summary['has_video'] and not summary['has_audio']
+
+
+def test_video_shaped_link_can_discover_note_route():
+    from douyin import extract_share_video
+    from test_douyin_share import Response, Session
+    empty = 'window._ROUTER_DATA = {"loaderData": {"video_(id)/page": {}}}'
+    session = Session([Response(empty), Response(gallery_page([{'url_list': [CLEAN]}]))])
+    info = extract_share_video(f'https://www.douyin.com/video/{ID}', session=session)
+    assert info['media_type'] == 'images'
+    assert '/share/note/' in session.calls[1][0]
