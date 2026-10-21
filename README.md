@@ -4,6 +4,14 @@
 
 ## 安装和使用
 
+前往 [v1.5.1 下载页面](https://github.com/HelloRyj/TubeDrop/releases/tag/v1.5.1) 获取安装包，或直接选择：
+
+- [macOS Apple Silicon 安装包](https://github.com/HelloRyj/TubeDrop/releases/download/v1.5.1/TubeDrop-1.5.1-macOS-arm64.pkg)
+- [Windows x64 安装包](https://github.com/HelloRyj/TubeDrop/releases/download/v1.5.1/TubeDrop-1.5.1-Windows-x64-Setup.exe)
+- [SHA256 校验文件](https://github.com/HelloRyj/TubeDrop/releases/download/v1.5.1/TubeDrop-1.5.1-SHA256.txt)
+
+Release 中自动生成的 Source code 压缩包用于开发，请使用上面的 PKG / EXE 安装程序。
+
 **macOS：**双击 `TubeDrop-1.5.1-macOS-arm64.pkg`，按系统安装器提示安装到“应用程序”，然后打开 TubeDrop。此包针对 Apple Silicon Mac，要求 macOS 14 或更新版本；Intel Mac 需要在 Intel 环境重新构建。
 
 **Windows：**双击 `TubeDrop-1.5.1-Windows-x64-Setup.exe`，按向导安装，完成后从开始菜单打开 TubeDrop。默认安装到当前用户的 `%LOCALAPPDATA%\Programs\TubeDrop`，无需预装 Python、Node 或 FFmpeg。卸载可通过系统“已安装的应用”或开始菜单中的卸载入口完成，用户下载的视频和设置会保留。目标系统为 Windows 10 / 11 x64。
@@ -13,6 +21,12 @@
 使用流程：粘贴 YouTube / youtu.be / Shorts / TikTok / 抖音链接 → 自动识别 → 选择视频、图片或音频格式，以及画质和保存位置 → 开始下载。下载完成后点击“打开保存目录”。取消后可能保留未完成的临时文件；重新下载不会覆盖已有视频。
 
 无法连接视频平台时，可输入自己的 HTTP 或 SOCKS5 代理地址，例如 `http://127.0.0.1:7890`。代理不保存。需要访问权限或人机验证的视频可能无法下载；当前版本不支持直播、播放列表、TikTok 图集或个人主页批量下载，也不会读取浏览器登录信息。
+
+## 界面预览
+
+![TubeDrop 主界面](docs/ui-preview.png)
+
+[查看下拉菜单预览](docs/menu-preview.png)。菜单采用浅底深字，选中项为蓝底白字，支持鼠标和键盘选择。
 
 ## TikTok 链接
 
