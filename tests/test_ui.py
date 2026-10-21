@@ -11,6 +11,44 @@ from PySide6.QtWidgets import QApplication
 from app import Window
 
 
+def contrast_ratio(first, second):
+    def luminance(color):
+        channels = [color.redF(), color.greenF(), color.blueF()]
+        linear = [c / 12.92 if c <= 0.04045 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+        return sum(c * weight for c, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+    lighter, darker = sorted((luminance(first), luminance(second)), reverse=True)
+    return (lighter + 0.05) / (darker + 0.05)
+
+
+@pytest.mark.parametrize('dark', [False, True])
+@pytest.mark.parametrize('control', ['output_format', 'quality'])
+def test_dropdown_text_stays_readable_across_system_palettes(qt_app, tmp_path, dark, control):
+    from PySide6.QtGui import QColor, QPalette
+    original = qt_app.palette()
+    palette = QPalette(original)
+    palette.setColor(QPalette.ColorRole.Base, QColor('#202124' if dark else '#ffffff'))
+    palette.setColor(QPalette.ColorRole.Text, QColor('#ffffff' if dark else '#202124'))
+    qt_app.setPalette(palette)
+    widget = Window(QSettings(str(tmp_path / 'theme.ini'), QSettings.Format.IniFormat))
+    try:
+        combo = getattr(widget, control)
+        combo.setEnabled(True)
+        widget.show()
+        combo.showPopup()
+        qt_app.processEvents()
+        view = combo.view()
+        for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+            colors = view.palette()
+            for text, background in ((QPalette.ColorRole.Text, QPalette.ColorRole.Base),
+                                     (QPalette.ColorRole.HighlightedText, QPalette.ColorRole.Highlight)):
+                assert contrast_ratio(colors.color(group, text), colors.color(group, background)) >= 4.5
+        combo.hidePopup()
+    finally:
+        widget.close()
+        qt_app.setPalette(original)
+        qt_app.processEvents()
+
+
 def wait_until(predicate, timeout=5000):
     end = time.monotonic() + timeout / 1000
     while time.monotonic() < end:
@@ -18,6 +56,30 @@ def wait_until(predicate, timeout=5000):
             return
         QTest.qWait(20)
     assert predicate(), '状态转换超时'
+
+
+@pytest.mark.parametrize('input_method', ['keyboard', 'mouse'])
+def test_styled_dropdown_keeps_format_selection_working(window, qt_app, input_method):
+    from PySide6.QtCore import Qt
+    window.handle_event({'type': 'metadata', 'video': {
+        'title': '测试作品', 'channel': '作者', 'duration': 10, 'thumbnail': None,
+        'heights': [1080, 720], 'has_audio': True, 'has_video': True,
+    }})
+    window.show()
+    combo = window.output_format
+    combo.showPopup()
+    qt_app.processEvents()
+    view = combo.view()
+    if input_method == 'keyboard':
+        QTest.keyClick(view, Qt.Key.Key_End)
+        QTest.keyClick(view, Qt.Key.Key_Return)
+    else:
+        index = combo.model().index(combo.findData('flac'), 0)
+        QTest.mouseClick(view.viewport(), Qt.MouseButton.LeftButton, pos=view.visualRect(index).center())
+    assert combo.currentData() == 'flac'
+    assert not view.isVisible()
+    assert not window.quality.isEnabled()
+    assert window.download_btn.isEnabled()
 
 
 def test_invalid_link_is_actionable_without_starting_worker(window):
