@@ -8,6 +8,7 @@
 - macOS：PKG 为 106,492,320 字节，完整展开后版本、Applications 安装路径、禁止重定位、macOS 14 最低版本和 codesign 深度严格校验通过；Mac ZIP 完整性通过。未向系统 Applications 实际安装，仍为本地临时签名、未公证。
 - Windows：安装包为 112,473,230 字节，7-Zip 校验全部 4,384 个文件通过，应用载荷逐文件匹配本次源码，运行组件 SHA256 在构建中重新核验。没有 Windows 实机，安装、启动、下载及卸载仍未验证。
 - 独立代码审查未发现必须修复项；仍依赖平台元数据正确标识 PCM32。依赖版本未更改，未重复依赖审计；三平台兼容性覆盖为受控 HTTP / FFmpeg 测试，本次真实平台下载验证仅覆盖上述抖音作品。安装包与 ZIP 校验值见 `TubeDrop-1.5.2-SHA256.txt`。
+- [公开 GitHub Release v1.5.2](https://github.com/HelloRyj/TubeDrop/releases/tag/v1.5.2) 已发布：仓库为 PUBLIC，发布为非草稿、非预发布，四个资产均为 uploaded；GitHub 返回的大小与 SHA256 全部匹配本地文件。
 
 ## 1.5.1 — 2026-10-21
 
