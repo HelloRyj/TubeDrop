@@ -3,6 +3,7 @@ import functools
 import json
 import os
 import subprocess
+import sys
 import threading
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 
@@ -18,8 +19,12 @@ from worker import run
     ('https://www.tiktok.com/@creator/video/6748451240264420610', '6748451240264420610', 'TikTok'),
     ('https://www.douyin.com/video/6961737553342991651', '6961737553342991651', 'Douyin'),
 ])
-@pytest.mark.parametrize('output_format', ['mp4', 'mp3', 'flac'])
-def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, video_id, extractor, output_format):
+@pytest.mark.parametrize(('output_format', 'source_codec', 'source_ext'), [
+    ('mp4', 'aac', 'm4a'), ('mp3', 'aac', 'm4a'),
+    ('flac', 'aac', 'm4a'), ('flac', 'libopus', 'opus'),
+])
+def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, video_id, extractor,
+                                          output_format, source_codec, source_ext):
     media = tmp_path / 'media'
     media.mkdir()
     destination = tmp_path / 'saved'
@@ -30,10 +35,10 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
                     '-pix_fmt', 'yuv420p', str(media / 'video.mp4')], check=True)
     subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i',
                     'sine=frequency=440:sample_rate=44100', '-t', '0.5',
-                    '-c:a', 'aac', str(media / 'audio.m4a')], check=True)
+                    '-c:a', source_codec, str(media / f'audio.{source_ext}')], check=True)
     # 短视频平台的音频选项可能是单独的背景音乐，MP3 应优先提取视频原音轨。
     subprocess.run([ffmpeg, '-v', 'error', '-i', str(media / 'video.mp4'),
-                    '-i', str(media / 'audio.m4a'), '-c', 'copy',
+                    '-i', str(media / f'audio.{source_ext}'), '-c', 'copy',
                     str(media / 'combined.mp4')], check=True)
     subprocess.run([ffmpeg, '-v', 'error', '-f', 'lavfi', '-i',
                     'sine=frequency=880:sample_rate=44100', '-t', '1.5',
@@ -52,12 +57,13 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
         'extractor': extractor.lower(), 'extractor_key': extractor,
         'webpage_url': url,
         'formats': [
-            {'format_id': 'audio', 'url': origin + ('/audio.m4a' if extractor == 'Youtube' else '/music.m4a'), 'ext': 'm4a',
-             'vcodec': 'none', 'acodec': 'mp4a.40.2', 'abr': 128},
+            {'format_id': 'audio', 'url': origin + (f'/audio.{source_ext}' if extractor == 'Youtube' else '/music.m4a'),
+             'ext': source_ext if extractor == 'Youtube' else 'm4a',
+             'vcodec': 'none', 'acodec': 'opus' if source_codec == 'libopus' and extractor == 'Youtube' else 'mp4a.40.2', 'abr': 128},
             {'format_id': 'video', 'url': origin + '/video.mp4', 'ext': 'mp4',
              'vcodec': 'avc1', 'acodec': 'none', 'height': 90, 'width': 160},
             {'format_id': 'combined', 'url': origin + '/combined.mp4', 'ext': 'mp4',
-             'vcodec': 'avc1', 'acodec': 'aac', 'height': 90, 'width': 160},
+             'vcodec': 'avc1', 'acodec': 'opus' if source_codec == 'libopus' else 'aac', 'height': 90, 'width': 160},
         ],
     }
     monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', lambda *_args, **_kwargs: info)
@@ -93,6 +99,17 @@ def test_real_download_merge_and_final_file(tmp_path, monkeypatch, capsys, url, 
         assert seconds < 1, 'MP3 应保存原视频声音，不能下载更长的独立背景音乐'
     assert subprocess.run([ffmpeg, '-v', 'error', '-i', str(final), '-f', 'null', '-'],
                           capture_output=True).returncode == 0
+    if output_format == 'flac':
+        # STREAMINFO 的有效位深；s32 只是 FFmpeg 的内存格式，不能据此判断文件位深。
+        with final.open('rb') as stream:
+            header = stream.read(42)
+        assert header[:4] == b'fLaC'
+        bits = ((int.from_bytes(header[18:26], 'big') >> 36) & 31) + 1
+        assert bits <= 24, '有损音源不应生成兼容性较差的 32 位 FLAC'
+        if sys.platform == 'darwin':
+            decoded = subprocess.run(['afconvert', '-f', 'WAVE', '-d', 'LEI16',
+                                      str(final), str(tmp_path / 'apple-decoded.wav')], capture_output=True)
+            assert decoded.returncode == 0, decoded.stderr.decode(errors='replace')
 
 
 @pytest.mark.parametrize('bits', [24, 32])

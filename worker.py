@@ -192,8 +192,6 @@ def download_options(folder: Path, height: int | None, output_format: str = 'mp4
                 ('=', 'flac'), ('=', 'alac'), ('^=', 'pcm_s'), ('^=', 'pcm_u'))
                 for base in bases]
             selector = '/'.join([*lossless, selector])
-            # 捆绑 FFmpeg 的 32 位 FLAC 需要此选项，避免 PCM32 静默降为 24 位。
-            options['postprocessor_args'] = {'extractaudio+ffmpeg_o': ['-strict', 'experimental']}
         processor = {'key': 'FFmpegExtractAudio', 'preferredcodec': output_format}
         if output_format == 'mp3':
             processor['preferredquality'] = '192'
@@ -294,6 +292,9 @@ def run(argv: list[str]) -> int:
                 raise ValueError('此视频没有可下载的音轨，请选择 MP4 或尝试其他视频。')
             if args.output_format == 'mp4' and not summary['has_video']:
                 raise ValueError('此链接仅有音频，请选择 MP3。')
+            if args.output_format == 'flac' and re.fullmatch(r'pcm_[su]32(?:le|be)?', info.get('acodec') or ''):
+                # 仅原始 PCM32 需要扩展位深；AAC/Opus 使用常规 FLAC，兼容更多播放器。
+                ydl.params['postprocessor_args'] = {'extractaudio+ffmpeg_o': ['-strict', 'experimental']}
             ydl.add_post_processor(FinalFile(), when='after_move')
             ydl.process_ie_result(info, download=True)
         if not final_paths or not all(p.is_file() and p.stat().st_size > 0 and p.is_relative_to(folder)
