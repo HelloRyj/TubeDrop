@@ -10,6 +10,7 @@
 - TikTok `7047596209028074758` 两次识别均因 TLS 连接中断失败，系统 curl 访问同站也以 SSL_ERROR_SYSCALL 失败。本次未验证 TikTok 实网可用，不将受控下载测试当作实网成功；没有改动系统代理或增加访问验证。既有 TikTok 水印限制仍保留。
 - macOS：PKG 完整展开，版本 1.5.3、固定 Applications 路径、禁止重定位、最低 macOS 14 和深度严格签名校验通过，Mac ZIP 完整性通过；仍为临时签名、未公证，未实际写入系统 Applications。Windows 归档完整性及应用载荷与源码比对通过，运行组件 SHA256 构建时复核。校验文件为 `TubeDrop-1.5.3-SHA256.txt`。
 - 独立审查最终代码未发现必须修复项。依赖版本未变化，没有重复依赖审计；没有宣称完成 Windows 实机安装和运行测试。
+- [公开 GitHub Release v1.5.3](https://github.com/HelloRyj/TubeDrop/releases/tag/v1.5.3) 已发布：发布为非草稿、非预发布，四个资产均为 uploaded；公开前后分别核对 GitHub 返回的文件大小和 SHA256，全部匹配本地安装包、ZIP 与校验文件。
 
 ## 1.5.2 — 2026-10-22
 
