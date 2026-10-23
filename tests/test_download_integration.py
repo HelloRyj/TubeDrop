@@ -129,7 +129,10 @@ def test_flac_preserves_lossless_pcm_samples(tmp_path, monkeypatch, capsys, bits
             'formats': [{'format_id': 'pcm', 'url': f'http://127.0.0.1:{server.server_port}/original.wav',
                          'ext': 'wav', 'acodec': f'pcm_s{bits}le', 'vcodec': 'none'}]}
     monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', lambda *a, **k: info)
-    monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    if os.name == 'posix':
+        monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    else:
+        monkeypatch.setattr('winjob.assign_worker_job', lambda: None)
     try:
         assert run(['download', 'https://youtu.be/BaW_jenozKc', '--folder', str(destination), '--output-format', 'flac']) == 0
     finally:
@@ -162,7 +165,10 @@ def test_gallery_music_uses_audio_formats(tmp_path, monkeypatch, capsys, fmt):
             'formats': [{'format_id': 'music', 'url': f'http://127.0.0.1:{server.server_port}/music.flac',
                          'ext': 'flac', 'acodec': 'flac', 'vcodec': 'none'}]}
     monkeypatch.setattr(worker, 'extract_share_video', lambda *a, **k: info)
-    monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    if os.name == 'posix':
+        monkeypatch.setattr(os, 'getpgrp', os.getpid)
+    else:
+        monkeypatch.setattr('winjob.assign_worker_job', lambda: None)
     try:
         code = run(['download', 'https://www.douyin.com/note/7696358352017148859',
                     '--folder', str(destination), '--output-format', fmt])

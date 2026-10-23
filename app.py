@@ -344,10 +344,12 @@ class Window(QMainWindow):
             # Console 后台程序不能依靠 WM_CLOSE；Job Object 清理子进程。
             self.process.kill()
             return
-        if os.name == 'posix' and pid and self.group_ready:
+        if os.name == 'posix' and pid:
             try:
-                os.killpg(pid, signal.SIGKILL if hard else signal.SIGTERM)
-                return
+                # 启动通知可能尚在管道中；以系统进程组核实归属，避免误伤界面进程。
+                if os.getpgid(pid) == pid:
+                    os.killpg(pid, signal.SIGKILL if hard else signal.SIGTERM)
+                    return
             except ProcessLookupError:
                 pass
         self.process.kill() if hard else self.process.terminate()
@@ -359,11 +361,8 @@ class Window(QMainWindow):
         self.timeout_timer.stop()
         self.cancel_btn.setEnabled(False)
         self.show_status('正在取消…')
-        process = self.process
-        self.stop_process()
-        # 不阻塞界面；仅当原进程仍运行时升级为强制结束。
-        QTimer.singleShot(1500, lambda: self.stop_process(hard=True)
-                          if self.process is process else None)
+        # 一次终止整个任务；先结束主进程再延迟强杀会漏掉仍存活的子进程。
+        self.stop_process(hard=True)
 
     def identify_timeout(self):
         if self.process:

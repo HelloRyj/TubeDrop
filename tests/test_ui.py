@@ -119,34 +119,79 @@ def test_error_event_restores_controls_after_worker_exit(window, tmp_path):
 
 
 @pytest.mark.skipif(os.name != 'posix', reason='POSIX 进程组测试')
-def test_cancel_stops_worker_and_child_process(window, tmp_path):
+@pytest.mark.parametrize(('action', 'ignore_term', 'report_started'), [
+    ('cancel', False, True), ('cancel', True, True), ('close', True, True),
+    ('cancel', True, False), ('close', True, False),
+])
+def test_cancel_stops_worker_and_child_process(window, tmp_path, action, ignore_term, report_started):
+    import signal
+    import sys
     script = tmp_path / 'sleep_worker.py'
+    child_script = tmp_path / 'child.py'
     pid_file = tmp_path / 'child.pid'
+    child_script.write_text(
+        'import os, signal, time\n'
+        + ('signal.signal(signal.SIGTERM, signal.SIG_IGN)\n' if ignore_term else '')
+        + f'open({str(pid_file)!r}, "w").write(str(os.getpid()))\n'
+        + 'time.sleep(90)\n'
+    )
     script.write_text(
         'import os, subprocess, sys, time, json\n'
+        'from pathlib import Path\n'
         'os.setsid()\n'
-        'child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(90)"])\n'
-        f'open({str(pid_file)!r}, "w").write(str(child.pid))\n'
-        'print(json.dumps({"type":"started"}), flush=True)\n'
-        'time.sleep(90)\n'
+        f'child = subprocess.Popen([sys.executable, {str(child_script)!r}], '
+        'stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n'
+        f'while not Path({str(pid_file)!r}).exists(): time.sleep(0.01)\n'
+        + ('print(json.dumps({"type":"started"}), flush=True)\n' if report_started else '')
+        + 'time.sleep(90)\n'
     )
-    window.worker_command = lambda action, url: (__import__('sys').executable, [str(script)])
+    window.worker_command = lambda action, url: (sys.executable, [str(script)])
     window.url_edit.setText('https://youtu.be/BaW_jenozKc')
     window.identify()
+    group_id = window.process.processId()
+    try:
+        # 就绪文件在子进程安装信号处理后写入，避免取消恰好发生在初始化前。
+        wait_until(lambda: pid_file.exists() and bool(pid_file.read_text()))
+        if report_started:
+            wait_until(lambda: window.group_ready)
+        else:
+            assert not window.group_ready
+        child_pid = int(pid_file.read_text())
+        getattr(window, action)()
+        wait_until(lambda: not window.is_busy())
+        assert '已取消' in window.status.text()
+        assert window.identify_btn.isEnabled()
+
+        def child_stopped():
+            try:
+                os.kill(child_pid, 0)
+                return False
+            except ProcessLookupError:
+                return True
+        wait_until(child_stopped, timeout=2500)
+    finally:
+        # 旧代码的失败用例也必须清理存活的子进程。
+        try:
+            os.killpg(group_id, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+
+
+@pytest.mark.skipif(os.name != 'posix', reason='POSIX 进程组测试')
+def test_cancel_does_not_signal_shared_process_group(window, tmp_path, monkeypatch):
+    import sys
+    script = tmp_path / 'before_session.py'
+    script.write_text('import time, json\nprint(json.dumps({"type":"started"}), flush=True)\ntime.sleep(90)\n')
+    window.worker_command = lambda action, url: (sys.executable, [str(script)])
+    window.start_worker('identify', 'https://youtu.be/BaW_jenozKc')
     wait_until(lambda: window.group_ready)
-    child_pid = int(pid_file.read_text())
+    assert os.getpgid(window.process.processId()) != window.process.processId()
+
+    def reject_group_signal(*_):
+        pytest.fail('不得向尚未创建独立会话的进程发送进程组信号')
+    monkeypatch.setattr(os, 'killpg', reject_group_signal)
     window.cancel()
     wait_until(lambda: not window.is_busy())
-    assert '已取消' in window.status.text()
-    assert window.identify_btn.isEnabled()
-
-    def child_stopped():
-        try:
-            os.kill(child_pid, 0)
-            return False
-        except ProcessLookupError:
-            return True
-    wait_until(child_stopped)
 
 
 def test_complete_requires_final_file(window, tmp_path):
