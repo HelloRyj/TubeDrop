@@ -32,7 +32,7 @@ def test_download_never_overwrites_existing_file(tmp_path):
     assert options['format'].endswith('/b[height<=720]')
 
 
-@pytest.mark.parametrize('platform', ['YouTube', 'TikTok', '抖音'])
+@pytest.mark.parametrize('platform', ['YouTube', '抖音'])
 def test_mp3_options_extract_audio_without_video_remux(tmp_path, platform):
     options = download_options(tmp_path, 720, 'mp3', platform)
     assert 'height' not in options['format']

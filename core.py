@@ -9,16 +9,13 @@ from urllib.parse import parse_qs, urlsplit
 
 VIDEO_ID = re.compile(r'^[A-Za-z0-9_-]{11}$')
 HOSTS = {'youtube.com', 'www.youtube.com', 'm.youtube.com', 'music.youtube.com'}
-TIKTOK_HOSTS = {'tiktok.com', 'www.tiktok.com', 'm.tiktok.com'}
-TIKTOK_SHORT_HOSTS = {'vm.tiktok.com', 'vt.tiktok.com'}
-TIKTOK_VIDEO = re.compile(r'/@(?P<user>[A-Za-z0-9_.-]*)/video/(?P<id>[0-9]{10,25})')
 DOUYIN_HOSTS = {'douyin.com', 'www.douyin.com', 'iesdouyin.com', 'www.iesdouyin.com'}
 
 
 def normalize_url(raw: str) -> str:
     raw = raw.strip()
     if not raw or len(raw) > 4096 or any(ord(c) < 32 and c not in '\r\n\t' for c in raw):
-        raise ValueError('请粘贴有效的 YouTube、TikTok 或抖音作品链接。')
+        raise ValueError('请粘贴有效的 YouTube 或抖音作品链接。')
     if any(c.isspace() for c in raw):
         # 抖音复制的分享文案常带标题；只接受其中唯一的一条链接。
         links = re.findall(r'https?://[^\s<>"“”]+', raw)
@@ -49,16 +46,6 @@ def normalize_url(raw: str) -> str:
                 raise ValueError
             kind = 'note' if '/note/' in path else 'video'
             return f'https://www.douyin.com/{kind}/{video_id}'
-        if host in TIKTOK_SHORT_HOSTS and re.fullmatch(r'/[A-Za-z0-9_]{5,100}', path):
-            return f'https://{host}{path}/'
-        if host in TIKTOK_HOSTS:
-            if re.fullmatch(r'/t/[A-Za-z0-9_]{5,100}', path):
-                return f'https://www.tiktok.com{path}/'
-            if match := TIKTOK_VIDEO.fullmatch(path):
-                return f'https://www.tiktok.com/@{match["user"] or "_"}/video/{match["id"]}'
-            if match := re.fullmatch(r'/(?:share/video|embed)/([0-9]{10,25})', path):
-                return f'https://www.tiktok.com/@_/video/{match[1]}'
-            raise ValueError
         if host == 'youtu.be':
             video_id = path[1:]
         elif host in HOSTS:
@@ -74,7 +61,7 @@ def normalize_url(raw: str) -> str:
         if not VIDEO_ID.fullmatch(video_id):
             raise ValueError
     except ValueError:
-        raise ValueError('请使用 YouTube、TikTok 或抖音单个作品链接，支持分享短链接。') from None
+        raise ValueError('请使用 YouTube 或抖音单个作品链接，支持分享短链接。') from None
     # 仅传递视频 ID，去除播放列表、跳转参数和分享追踪信息。
     return f'https://www.youtube.com/watch?v={video_id}'
 
@@ -83,17 +70,11 @@ def platform_name(url: str) -> str:
     host = urlsplit(url).hostname
     if host in DOUYIN_HOSTS | {'v.douyin.com'}:
         return '抖音'
-    return 'TikTok' if host in TIKTOK_HOSTS | TIKTOK_SHORT_HOSTS else 'YouTube'
-
-
-def is_tiktok_short_url(url: str) -> bool:
-    parts = urlsplit(url)
-    return parts.hostname in TIKTOK_SHORT_HOSTS or (
-        parts.hostname in TIKTOK_HOSTS and parts.path.startswith('/t/'))
+    return 'YouTube'
 
 
 def is_share_short_url(url: str) -> bool:
-    return is_tiktok_short_url(url) or urlsplit(url).hostname == 'v.douyin.com'
+    return urlsplit(url).hostname == 'v.douyin.com'
 
 
 def thumbnail_url_allowed(url: str) -> bool:
@@ -103,8 +84,7 @@ def thumbnail_url_allowed(url: str) -> bool:
     host = parts.hostname or ''
     return host in {'i.ytimg.com', 'img.youtube.com'} or any(
         host == domain or host.endswith('.' + domain)
-        for domain in ('tiktokcdn.com', 'tiktokcdn-us.com', 'ibytedtos.com', 'byteoversea.com',
-                       'douyinpic.com', 'douyincdn.com', 'byteimg.com'))
+        for domain in ('ibytedtos.com', 'douyinpic.com', 'douyincdn.com', 'byteimg.com'))
 
 
 def available_heights(formats: list[dict]) -> list[int]:

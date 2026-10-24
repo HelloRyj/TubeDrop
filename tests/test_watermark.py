@@ -28,7 +28,7 @@ def test_only_known_official_play_endpoint_is_rewritten(address):
     assert original_playback_url(address) == address
 
 
-@pytest.mark.parametrize('platform', ['YouTube', 'TikTok', '抖音'])
+@pytest.mark.parametrize('platform', ['YouTube', '抖音'])
 @pytest.mark.parametrize('marked', [
     video('wm', format_note='Download video, watermarked'),
     video('wm', has_watermark=True),
@@ -44,7 +44,7 @@ def test_known_watermark_formats_are_removed_on_every_platform(platform, marked)
     assert info['formats'] == [clean, marked]
 
 
-@pytest.mark.parametrize('platform', ['TikTok', '抖音'])
+@pytest.mark.parametrize('platform', ['抖音'])
 def test_no_playback_video_does_not_fall_back_to_watermark_or_music(platform):
     with pytest.raises(ValueError, match='原始播放源'):
         original_video_formats({'formats': [
@@ -59,7 +59,7 @@ def test_youtube_separate_video_and_audio_are_preserved():
 
 def test_watermark_free_note_is_not_mistaken_for_watermarked():
     formats = [video(format_note='watermark-free playback')]
-    assert original_video_formats({'formats': formats}, 'TikTok')['formats'] == formats
+    assert original_video_formats({'formats': formats}, '抖音')['formats'] == formats
 
 
 def test_worker_filters_before_selecting_resolution(monkeypatch):
@@ -71,6 +71,6 @@ def test_worker_filters_before_selecting_resolution(monkeypatch):
         return raw
     monkeypatch.setattr(yt_dlp.YoutubeDL, 'extract_info', extract)
     with yt_dlp.YoutubeDL({'quiet': True, 'format': 'best'}) as ydl:
-        info = extract_video_info(ydl, 'https://www.tiktok.com/@creator/video/7047596209028074758')
+        info = extract_video_info(ydl, 'https://www.douyin.com/video/6961737553342991651')
     assert info['format_id'] == 'play'
     assert [f['height'] for f in info['formats']] == [720]

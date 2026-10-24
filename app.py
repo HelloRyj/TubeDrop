@@ -25,7 +25,7 @@ from version import VERSION
 class Window(QMainWindow):
     def __init__(self, settings=None):
         super().__init__()
-        self.setWindowTitle('TubeDrop · YouTube / TikTok / 抖音下载')
+        self.setWindowTitle('TubeDrop · YouTube / 抖音下载')
         self.resize(780, 820)
         self.setMinimumSize(680, 600)
         self.settings = settings if settings is not None else QSettings('TubeDrop', 'TubeDrop')

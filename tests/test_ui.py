@@ -212,15 +212,15 @@ def test_cards_do_not_clip_controls_at_default_window_size(window, qt_app):
     assert all(frame.height() >= frame.minimumSizeHint().height() for frame in cards)
 
 
-def test_tiktok_metadata_uses_resolved_link_for_download(window):
-    url = 'https://www.tiktok.com/@creator/video/6748451240264420610'
+def test_douyin_metadata_uses_resolved_link_for_download(window):
+    url = 'https://www.douyin.com/video/6961737553342991651'
     window.handle_event({'type': 'metadata', 'video': {
-        'title': 'TikTok 视频', 'channel': '作者', 'duration': 13,
-        'heights': [720], 'thumbnail': None, 'platform': 'TikTok', 'url': url,
+        'title': '抖音视频', 'channel': '作者', 'duration': 13,
+        'heights': [720], 'thumbnail': None, 'platform': '抖音', 'url': url,
     }})
     window.set_busy(False)
     assert window.identified_url == url
-    assert 'TikTok' in window.video_detail.text()
+    assert '抖音' in window.video_detail.text()
     assert window.download_btn.isEnabled()
 
 

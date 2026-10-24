@@ -16,7 +16,6 @@ from worker import run
 
 @pytest.mark.parametrize(('url', 'video_id', 'extractor'), [
     ('https://youtu.be/BaW_jenozKc', 'BaW_jenozKc', 'Youtube'),
-    ('https://www.tiktok.com/@creator/video/6748451240264420610', '6748451240264420610', 'TikTok'),
     ('https://www.douyin.com/video/6961737553342991651', '6961737553342991651', 'Douyin'),
 ])
 @pytest.mark.parametrize(('output_format', 'source_codec', 'source_ext'), [

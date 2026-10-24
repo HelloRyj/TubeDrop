@@ -56,21 +56,20 @@ def test_network_error_is_actionable():
     assert '登录' in human_error('Sign in to confirm you’re not a bot')
 
 
-@pytest.mark.parametrize(('raw', 'expected'), [
-    ('https://www.tiktok.com/@creator/video/6748451240264420610?is_from_webapp=1',
-     'https://www.tiktok.com/@creator/video/6748451240264420610'),
-    ('tiktok.com/@creator.name/video/6748451240264420610',
-     'https://www.tiktok.com/@creator.name/video/6748451240264420610'),
-    ('https://www.tiktok.com/share/video/6748451240264420610/',
-     'https://www.tiktok.com/@_/video/6748451240264420610'),
-    ('https://www.tiktok.com/embed/6748451240264420610',
-     'https://www.tiktok.com/@_/video/6748451240264420610'),
-    ('https://vm.tiktok.com/ZM123Abcd/?share=1', 'https://vm.tiktok.com/ZM123Abcd/'),
-    ('https://vt.tiktok.com/ZSe4FqkKd/', 'https://vt.tiktok.com/ZSe4FqkKd/'),
-    ('https://www.tiktok.com/t/ZTRC5xgJp/', 'https://www.tiktok.com/t/ZTRC5xgJp/'),
+@pytest.mark.parametrize('raw', [
+    'https://www.tiktok.com/@creator/video/6748451240264420610?is_from_webapp=1',
+    'tiktok.com/@creator.name/video/6748451240264420610',
+    'https://m.tiktok.com/@creator/video/6748451240264420610',
+    'https://www.tiktok.com/share/video/6748451240264420610/',
+    'https://www.tiktok.com/embed/6748451240264420610',
+    'https://vm.tiktok.com/ZM123Abcd/?share=1',
+    'https://vt.tiktok.com/ZSe4FqkKd/',
+    'https://www.tiktok.com/t/ZTRC5xgJp/',
+    '分享作品 https://vm.tiktok.com/ZM123Abcd/ 复制打开',
 ])
-def test_normalize_tiktok_video_and_short_links(raw, expected):
-    assert normalize_url(raw) == expected
+def test_removed_tiktok_links_are_rejected(raw):
+    with pytest.raises(ValueError, match='YouTube.*抖音'):
+        normalize_url(raw)
 
 
 @pytest.mark.parametrize('url', [

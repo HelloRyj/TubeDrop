@@ -91,7 +91,7 @@ def video_summary(info: dict) -> dict:
     formats = info.get('formats') or []
     extractor = str(info.get('extractor_key') or '').lower()
     audio_formats = [f for f in formats if f.get('acodec') not in {None, 'none'}]
-    if extractor in {'douyin', 'tiktok'} and info.get('media_type') != 'images':
+    if extractor == 'douyin' and info.get('media_type') != 'images':
         audio_formats = [f for f in audio_formats if f.get('vcodec') not in {None, 'none'}]
     audio_quality = ('lossless' if any(lossless_codec(f.get('acodec')) for f in audio_formats)
                      else 'lossy' if audio_formats and all(str(f.get('acodec')).startswith(
@@ -107,7 +107,7 @@ def video_summary(info: dict) -> dict:
         'media_type': info.get('media_type', 'video'),
         'image_count': len(info.get('images') or []),
         'audio_quality': audio_quality,
-        'platform': '抖音' if extractor == 'douyin' else 'TikTok' if extractor.startswith('tiktok') else 'YouTube',
+        'platform': '抖音' if extractor == 'douyin' else 'YouTube',
     }
 
 
@@ -124,12 +124,12 @@ def original_video_formats(info: dict, platform: str) -> dict:
         marked = (candidate.get('has_watermark') or candidate.get('watermarked')
                   or re.search(r'\bwatermarked\b', note)
                   or '/playwm/' in urlsplit(candidate.get('url') or '').path)
-        # TikTok 下载专用流可能带水印；只保留播放流与其音轨。
-        download_copy = (platform in {'TikTok', '抖音'}
+        # 抖音下载专用流可能带水印；只保留播放流与其音轨。
+        download_copy = (platform == '抖音'
                          and str(candidate.get('format_id') or '').startswith('download'))
         if not marked and not download_copy:
             formats.append(candidate)
-    if not formats or (platform in {'TikTok', '抖音'} and not any(
+    if not formats or (platform == '抖音' and not any(
             f.get('vcodec') not in {None, 'none'} for f in formats)):
         raise NoOriginalVideo('未找到可用的原始播放源，已停止下载；不会自动改用已知带水印版本或背景音乐。')
     result = {**info, 'formats': formats}

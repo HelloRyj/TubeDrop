@@ -8,7 +8,7 @@ def audio(codec, name, video=False):
             'ext': 'mkv', 'acodec': codec, 'vcodec': 'h264' if video else 'none'}
 
 
-@pytest.mark.parametrize('platform', ['YouTube', 'TikTok', '抖音'])
+@pytest.mark.parametrize('platform', ['YouTube', '抖音'])
 @pytest.mark.parametrize('codec', ['flac', 'alac', 'pcm_s24le'])
 def test_flac_prefers_lossless_original_track(tmp_path, platform, codec):
     combined = platform != 'YouTube'
